@@ -7,6 +7,7 @@ RUN npm install -g pnpm
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/client/package.json ./apps/client/
+COPY apps/admin-panel/package.json ./apps/admin-panel/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
