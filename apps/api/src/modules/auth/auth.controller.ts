@@ -19,6 +19,17 @@ export class AuthController {
         );
     }
 
+    @Post('public/signup')
+    publicSignup(@Body(ValidationPipe) userDto: UserDto): Promise<UserResponse> {
+        return this.authService.publicSignup(
+            userDto.email,
+            userDto.password,
+            userDto.firstName,
+            userDto.lastName,
+            userDto.phoneNumber,
+        );
+    }
+
     @Get('login')
     login(
         @Query(ValidationPipe) userDto: LoginDto,

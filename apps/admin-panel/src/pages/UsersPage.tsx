@@ -217,7 +217,7 @@ export function UsersPage() {
                                                 {actionMenu === user.id && (
                                                     <div className="absolute right-6 top-12 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-10">
                                                         <button
-                                                            onClick={() => { setActionMenu(null); window.location.href = `/users/${user.id}`; }}
+                                                            onClick={() => { setActionMenu(null); setModalAction({ type: 'view', user }); }}
                                                             className="w-full flex items-center px-4 py-3 text-sm text-dark-200 hover:bg-dark-600 transition-colors"
                                                         >
                                                             <Eye className="w-4 h-4 mr-3" /> {t('users.view')}
@@ -292,7 +292,8 @@ export function UsersPage() {
                             {modalAction.type === 'ban' && t('users.ban')}
                             {modalAction.type === 'restore' && t('users.restore')}
                             {modalAction.type === 'delete' && t('users.delete')}
-                            {' '}{modalAction.user.firstName} {modalAction.user.lastName}?
+                            {modalAction.type === 'view' && 'User Details:'}
+                            {' '}{modalAction.user.firstName} {modalAction.user.lastName}
                         </h3>
 
                         {(modalAction.type === 'suspend' || modalAction.type === 'ban') && (
@@ -308,6 +309,33 @@ export function UsersPage() {
                             </div>
                         )}
 
+                        {modalAction.type === 'view' && (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-400">Full Name</label>
+                                    <p className="text-white">{modalAction.user.firstName} {modalAction.user.lastName}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-400">Email</label>
+                                    <p className="text-white">{modalAction.user.email || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-400">Phone</label>
+                                    <p className="text-white">{modalAction.user.phoneNumber}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-400">Role</label>
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getRoleBadge(modalAction.user.role)}`}>
+                                        {modalAction.user.role}
+                                    </span>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-400">Joined</label>
+                                    <p className="text-white">{new Date(modalAction.user.createdAt).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => { setModalAction(null); setActionReason(''); }}
@@ -319,8 +347,9 @@ export function UsersPage() {
                                 onClick={handleAction}
                                 className={modalAction.type === 'restore' ? 'btn-primary' : 'btn-danger'}
                                 disabled={(modalAction.type === 'suspend' || modalAction.type === 'ban') && !actionReason}
+                                style={{ display: modalAction.type === 'view' ? 'none' : 'block' }}
                             >
-                                <Check className="w-4 h-4 mr-2" />
+                                <Check className="w-4 h-4 mr-2 inline-block" />
                                 {t('common.confirm')}
                             </button>
                         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { Users, Activity, Gamepad2, Flag, TrendingUp, TrendingDown } from 'lucide-react';
 import { api } from '../api/client';
 
@@ -143,18 +144,18 @@ export function DashboardPage() {
                 <div className="card">
                     <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
                     <div className="space-y-3">
-                        <a href="/users" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
+                        <Link to="/users" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
                             <Users className="w-5 h-5 text-primary-400 mr-3" />
                             <span className="text-dark-200">Manage Users</span>
-                        </a>
-                        <a href="/reports" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
+                        </Link>
+                        <Link to="/reports" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
                             <Flag className="w-5 h-5 text-orange-400 mr-3" />
                             <span className="text-dark-200">Review Reports ({reportStats?.open || 0} open)</span>
-                        </a>
-                        <a href="/tournaments" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
+                        </Link>
+                        <Link to="/tournaments" className="flex items-center p-3 bg-dark-700 rounded-lg hover:bg-dark-600 transition-colors">
                             <Gamepad2 className="w-5 h-5 text-green-400 mr-3" />
                             <span className="text-dark-200">Manage Tournaments</span>
-                        </a>
+                        </Link>
                     </div>
                 </div>
 

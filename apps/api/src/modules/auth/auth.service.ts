@@ -30,8 +30,32 @@ export class AuthService {
 
         if (authHeader !== process.env.CRYPTOGRAPHY_SECRET) return { status: 401, message: 'Invalid or missing auth header token' }
 
-        const existingUser = await this.userModel.findOne({ phoneNumber }).exec()
-        if (existingUser) throw new BadRequestException('User with this number already exists')
+        return this._createUser(email, password, firstName, lastName, phoneNumber, role);
+    }
+
+    async publicSignup(
+        email: string,
+        password: string,
+        firstName: string,
+        lastName: string,
+        phoneNumber: number
+    ): Promise<UserResponse> {
+        return this._createUser(email, password, firstName, lastName, phoneNumber, 'user');
+    }
+
+    private async _createUser(
+        email: string,
+        password: string,
+        firstName: string,
+        lastName: string,
+        phoneNumber: number,
+        role: string
+    ): Promise<UserResponse> {
+        const existingUser = await this.userModel.findOne({ $or: [{ phoneNumber }, { email }] }).exec()
+        if (existingUser) {
+            if (existingUser.phoneNumber === phoneNumber) throw new BadRequestException('User with this number already exists')
+            if (existingUser.email === email) throw new BadRequestException('User with this email already exists')
+        }
 
         const encryptedPassword = this.encrypt(password)
 
