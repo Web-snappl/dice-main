@@ -8,6 +8,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/client/package.json ./apps/client/
 COPY apps/admin-panel/package.json ./apps/admin-panel/
+COPY apps/website/package.json ./apps/website/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
@@ -34,7 +35,7 @@ RUN mkdir -p /app/apps/api/public
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy built client static assets into public/
-COPY --from=builder /app/apps/client/dist/ ./apps/api/public/
+COPY --from=builder /app/apps/website/dist/ ./apps/api/public/
 
 WORKDIR /app/apps/api
 EXPOSE 8080
