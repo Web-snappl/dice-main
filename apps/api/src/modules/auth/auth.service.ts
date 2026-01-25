@@ -24,7 +24,7 @@ export class AuthService {
         password: string,
         firstName: string,
         lastName: string,
-        phoneNumber: number,
+        phoneNumber: string,
         role: string
     ): Promise<UserResponse> {
 
@@ -38,7 +38,7 @@ export class AuthService {
         password: string,
         firstName: string,
         lastName: string,
-        phoneNumber: number
+        phoneNumber: string
     ): Promise<UserResponse> {
         return this._createUser(email, password, firstName, lastName, phoneNumber, 'user');
     }
@@ -48,7 +48,7 @@ export class AuthService {
         password: string,
         firstName: string,
         lastName: string,
-        phoneNumber: number,
+        phoneNumber: string,
         role: string
     ): Promise<UserResponse> {
         const existingUser = await this.userModel.findOne({ $or: [{ phoneNumber }, { email }] }).exec()

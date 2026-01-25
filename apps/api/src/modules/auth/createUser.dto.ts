@@ -21,8 +21,8 @@ export class UserDto {
     @IsString()
     lastName: string;
 
-    @IsNumber()
-    phoneNumber: number;
+    @IsString()
+    phoneNumber: string;
 
     @IsString()
     @IsIn(['user', 'User', 'admin', 'Admin'], { message: 'role must be user or admin' })
