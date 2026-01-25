@@ -73,7 +73,7 @@ const Registration = () => {
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        phoneNumber: Number(formData.phoneNumber),
+        phoneNumber: formData.phoneNumber,
       });
 
       setUserEmail(formData.email);
