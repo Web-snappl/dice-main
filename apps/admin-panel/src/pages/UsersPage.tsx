@@ -1,0 +1,332 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check } from 'lucide-react';
+import { api } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
+
+interface User {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+    role: string;
+    status: string;
+    createdAt: string;
+    lastLoginAt?: string;
+}
+
+interface UserResponse {
+    users: User[];
+    total: number;
+    page: number;
+    limit: number;
+}
+
+export function UsersPage() {
+    const { t } = useTranslation();
+    const { user: currentUser } = useAuth();
+    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+
+    const [data, setData] = useState<UserResponse | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const [actionMenu, setActionMenu] = useState<string | null>(null);
+    const [modalAction, setModalAction] = useState<{ type: string; user: User } | null>(null);
+    const [actionReason, setActionReason] = useState('');
+
+    useEffect(() => {
+        document.getElementById('page-title')!.textContent = t('users.title');
+    }, [t]);
+
+    useEffect(() => {
+        loadUsers();
+    }, [page, search, roleFilter, statusFilter]);
+
+    const loadUsers = async () => {
+        setIsLoading(true);
+        try {
+            const params: Record<string, any> = { page, limit: 20 };
+            if (search) params.search = search;
+            if (roleFilter) params.role = roleFilter;
+            if (statusFilter) params.status = statusFilter;
+
+            const response = await api.getUsers(params);
+            setData(response);
+        } catch (error) {
+            console.error('Failed to load users:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleAction = async () => {
+        if (!modalAction) return;
+
+        try {
+            switch (modalAction.type) {
+                case 'suspend':
+                    await api.suspendUser(modalAction.user.id, actionReason);
+                    break;
+                case 'ban':
+                    await api.banUser(modalAction.user.id, actionReason);
+                    break;
+                case 'restore':
+                    await api.restoreUser(modalAction.user.id);
+                    break;
+                case 'delete':
+                    await api.deleteUser(modalAction.user.id);
+                    break;
+            }
+            setModalAction(null);
+            setActionReason('');
+            loadUsers();
+        } catch (error) {
+            console.error('Action failed:', error);
+        }
+    };
+
+    const getStatusBadge = (status: string) => {
+        const styles: Record<string, string> = {
+            active: 'bg-green-500/20 text-green-400 border-green-500/30',
+            suspended: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+            banned: 'bg-red-500/20 text-red-400 border-red-500/30',
+        };
+        return styles[status] || styles.active;
+    };
+
+    const getRoleBadge = (role: string) => {
+        const normalizedRole = role.toLowerCase();
+        const styles: Record<string, string> = {
+            admin: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+            moderator: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+            user: 'bg-dark-600 text-dark-300 border-dark-500',
+        };
+        return styles[normalizedRole] || styles.user;
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-400" />
+                    <input
+                        type="text"
+                        placeholder={t('users.search')}
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                        className="input-field pl-10"
+                    />
+                </div>
+                <div className="flex gap-3">
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+                        className="input-field w-40"
+                    >
+                        <option value="">{t('users.role')}</option>
+                        <option value="user">{t('users.player')}</option>
+                        <option value="moderator">{t('users.moderator')}</option>
+                        <option value="admin">{t('users.administrator')}</option>
+                    </select>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                        className="input-field w-40"
+                    >
+                        <option value="">{t('users.status')}</option>
+                        <option value="active">{t('users.active')}</option>
+                        <option value="suspended">{t('users.suspended')}</option>
+                        <option value="banned">{t('users.banned')}</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="card overflow-hidden p-0">
+                {isLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-dark-700">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            User
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            {t('users.role')}
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            {t('users.status')}
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            {t('users.createdAt')}
+                                        </th>
+                                        <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            {t('users.actions')}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-dark-700">
+                                    {data?.users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-dark-700/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center">
+                                                    <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center mr-4">
+                                                        <span className="text-sm font-bold text-white">
+                                                            {user.firstName?.[0]}{user.lastName?.[0]}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-white font-medium">
+                                                            {user.firstName} {user.lastName}
+                                                        </p>
+                                                        <p className="text-dark-400 text-sm">{user.email || user.phoneNumber}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getRoleBadge(user.role)}`}>
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(user.status || 'active')}`}>
+                                                    {user.status || 'active'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-dark-400 text-sm">
+                                                {new Date(user.createdAt).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4 text-right relative">
+                                                <button
+                                                    onClick={() => setActionMenu(actionMenu === user.id ? null : user.id)}
+                                                    className="p-2 hover:bg-dark-600 rounded-lg transition-colors"
+                                                >
+                                                    <MoreVertical className="w-5 h-5 text-dark-400" />
+                                                </button>
+
+                                                {actionMenu === user.id && (
+                                                    <div className="absolute right-6 top-12 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-10">
+                                                        <button
+                                                            onClick={() => { setActionMenu(null); window.location.href = `/users/${user.id}`; }}
+                                                            className="w-full flex items-center px-4 py-3 text-sm text-dark-200 hover:bg-dark-600 transition-colors"
+                                                        >
+                                                            <Eye className="w-4 h-4 mr-3" /> {t('users.view')}
+                                                        </button>
+                                                        {user.status === 'active' && (
+                                                            <button
+                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'suspend', user }); }}
+                                                                className="w-full flex items-center px-4 py-3 text-sm text-yellow-400 hover:bg-dark-600 transition-colors"
+                                                            >
+                                                                <UserX className="w-4 h-4 mr-3" /> {t('users.suspend')}
+                                                            </button>
+                                                        )}
+                                                        {isAdmin && user.status !== 'banned' && (
+                                                            <button
+                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'ban', user }); }}
+                                                                className="w-full flex items-center px-4 py-3 text-sm text-red-400 hover:bg-dark-600 transition-colors"
+                                                            >
+                                                                <Ban className="w-4 h-4 mr-3" /> {t('users.ban')}
+                                                            </button>
+                                                        )}
+                                                        {isAdmin && (user.status === 'suspended' || user.status === 'banned') && (
+                                                            <button
+                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'restore', user }); }}
+                                                                className="w-full flex items-center px-4 py-3 text-sm text-green-400 hover:bg-dark-600 transition-colors"
+                                                            >
+                                                                <Undo2 className="w-4 h-4 mr-3" /> {t('users.restore')}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {data && data.total > data.limit && (
+                            <div className="px-6 py-4 border-t border-dark-700 flex items-center justify-between">
+                                <p className="text-dark-400 text-sm">
+                                    {t('common.showing')} {(page - 1) * data.limit + 1}-{Math.min(page * data.limit, data.total)} {t('common.of')} {data.total}
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                        disabled={page === 1}
+                                        className="btn-secondary disabled:opacity-50"
+                                    >
+                                        {t('common.previous')}
+                                    </button>
+                                    <button
+                                        onClick={() => setPage(p => p + 1)}
+                                        disabled={page * data.limit >= data.total}
+                                        className="btn-secondary disabled:opacity-50"
+                                    >
+                                        {t('common.next')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Action Modal */}
+            {modalAction && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-dark-800 rounded-xl border border-dark-700 p-6 w-full max-w-md">
+                        <h3 className="text-xl font-bold text-white mb-4">
+                            {modalAction.type === 'suspend' && t('users.suspend')}
+                            {modalAction.type === 'ban' && t('users.ban')}
+                            {modalAction.type === 'restore' && t('users.restore')}
+                            {modalAction.type === 'delete' && t('users.delete')}
+                            {' '}{modalAction.user.firstName} {modalAction.user.lastName}?
+                        </h3>
+
+                        {(modalAction.type === 'suspend' || modalAction.type === 'ban') && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-dark-300 mb-2">Reason</label>
+                                <textarea
+                                    value={actionReason}
+                                    onChange={(e) => setActionReason(e.target.value)}
+                                    className="input-field h-24 resize-none"
+                                    placeholder="Enter reason..."
+                                    required
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => { setModalAction(null); setActionReason(''); }}
+                                className="btn-secondary"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleAction}
+                                className={modalAction.type === 'restore' ? 'btn-primary' : 'btn-danger'}
+                                disabled={(modalAction.type === 'suspend' || modalAction.type === 'ban') && !actionReason}
+                            >
+                                <Check className="w-4 h-4 mr-2" />
+                                {t('common.confirm')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

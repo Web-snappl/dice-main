@@ -1,0 +1,65 @@
+# Cloud Build configuration for CI/CD pipeline
+steps:
+  # Step 1: Install dependencies and run tests
+  - name: 'node:18-alpine'
+    entrypoint: npm
+    args: ['install']
+
+  - name: 'node:18-alpine'
+    entrypoint: npm
+    args: ['test']
+
+  # Step 2: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest',
+      '.'
+    ]
+
+  # Step 3: Push image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:latest']
+
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+      'run', 'deploy', '${_SERVICE_NAME}',
+      '--image', 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA',
+      '--region', '${_REGION}',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      '--port', '8080',
+      '--memory', '256Mi',
+      '--cpu', '1',
+      '--max-instances', '10',
+      '--set-env-vars', 'NODE_ENV=production'
+    ]
+
+  # Step 5: Ensure public access (backup step)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+      'run', 'services', 'add-iam-policy-binding', '${_SERVICE_NAME}',
+      '--region', '${_REGION}',
+      '--member', 'allUsers',
+      '--role', 'roles/run.invoker'
+    ]
+
+# Substitution variables
+substitutions:
+  _SERVICE_NAME: 'devops-demo-app'
+  _REGION: 'us-central1'
+
+# Options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+# Timeout
+timeout: '1200s'

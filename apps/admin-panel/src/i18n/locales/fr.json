@@ -1,0 +1,162 @@
+{
+    "app": {
+        "title": "Dice-world Admin",
+        "logout": "Déconnexion"
+    },
+    "nav": {
+        "dashboard": "Tableau de bord",
+        "users": "Utilisateurs",
+        "reports": "Signalements",
+        "games": "Jeux & Modes",
+        "scores": "Scores & Classements",
+        "tournaments": "Tournois",
+        "rewards": "Récompenses",
+        "financial": "Finances",
+        "auditLog": "Journal d'audit",
+        "settings": "Paramètres"
+    },
+    "login": {
+        "title": "Connexion Admin",
+        "subtitle": "Accédez au panneau d'administration Dice-world",
+        "email": "Email",
+        "password": "Mot de passe",
+        "submit": "Se connecter",
+        "loading": "Connexion en cours...",
+        "error": "Identifiants invalides"
+    },
+    "dashboard": {
+        "title": "Tableau de bord",
+        "totalUsers": "Utilisateurs totaux",
+        "activeToday": "Actifs aujourd'hui",
+        "gamesPlayed": "Parties jouées",
+        "openReports": "Signalements ouverts",
+        "newThisWeek": "Nouveaux cette semaine",
+        "playedToday": "Jouées aujourd'hui",
+        "pendingReview": "En attente de révision"
+    },
+    "users": {
+        "title": "Gestion des utilisateurs",
+        "search": "Rechercher des utilisateurs...",
+        "filters": "Filtres",
+        "role": "Rôle",
+        "status": "Statut",
+        "player": "Joueur",
+        "moderator": "Modérateur",
+        "administrator": "Administrateur",
+        "active": "Actif",
+        "suspended": "Suspendu",
+        "banned": "Banni",
+        "actions": "Actions",
+        "view": "Voir",
+        "edit": "Modifier",
+        "suspend": "Suspendre",
+        "ban": "Bannir",
+        "restore": "Restaurer",
+        "delete": "Supprimer",
+        "createdAt": "Créé le",
+        "lastLogin": "Dernière connexion"
+    },
+    "reports": {
+        "title": "Signalements de joueurs",
+        "open": "Ouvert",
+        "inReview": "En révision",
+        "resolved": "Résolu",
+        "reporter": "Signaleur",
+        "reported": "Utilisateur signalé",
+        "reason": "Raison",
+        "date": "Date",
+        "updateStatus": "Mettre à jour le statut"
+    },
+    "games": {
+        "title": "Jeux & Modes",
+        "name": "Nom",
+        "description": "Description",
+        "isActive": "Actif",
+        "minPlayers": "Joueurs min",
+        "maxPlayers": "Joueurs max",
+        "difficulty": "Difficulté",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "create": "Créer un jeu"
+    },
+    "scores": {
+        "title": "Scores & Classements",
+        "rankings": "Classements",
+        "suspicious": "Activité suspecte",
+        "period": "Période",
+        "global": "Tout le temps",
+        "weekly": "Cette semaine",
+        "monthly": "Ce mois",
+        "rank": "Rang",
+        "player": "Joueur",
+        "wins": "Victoires",
+        "games": "Parties",
+        "winRate": "Taux de victoire",
+        "resetScores": "Réinitialiser les scores"
+    },
+    "tournaments": {
+        "title": "Tournois & Événements",
+        "upcoming": "À venir",
+        "name": "Nom",
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "status": "Statut",
+        "draft": "Brouillon",
+        "scheduled": "Planifié",
+        "active": "Actif",
+        "completed": "Terminé",
+        "cancelled": "Annulé",
+        "create": "Créer un tournoi"
+    },
+    "rewards": {
+        "title": "Récompenses",
+        "allocate": "Attribuer une récompense",
+        "type": "Type",
+        "manual": "Manuel",
+        "tournament": "Tournoi",
+        "achievement": "Réussite",
+        "bonus": "Bonus",
+        "pending": "En attente",
+        "allocated": "Attribué",
+        "claimed": "Réclamé",
+        "expired": "Expiré"
+    },
+    "financial": {
+        "title": "Aperçu financier",
+        "readOnly": "Vue en lecture seule",
+        "transactions": "Transactions",
+        "summary": "Résumé",
+        "anomalies": "Anomalies",
+        "notAvailable": "Non disponible: données non suivies"
+    },
+    "auditLog": {
+        "title": "Journal d'audit",
+        "admin": "Admin",
+        "action": "Action",
+        "entity": "Entité",
+        "timestamp": "Horodatage",
+        "details": "Détails"
+    },
+    "settings": {
+        "title": "Paramètres",
+        "language": "Langue",
+        "english": "Anglais",
+        "french": "Français",
+        "theme": "Thème",
+        "dark": "Sombre",
+        "maintenance": "Mode maintenance"
+    },
+    "common": {
+        "loading": "Chargement...",
+        "error": "Une erreur s'est produite",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "confirm": "Confirmer",
+        "noData": "Aucune donnée disponible",
+        "showing": "Affichage de",
+        "of": "sur",
+        "page": "Page",
+        "previous": "Précédent",
+        "next": "Suivant"
+    }
+}

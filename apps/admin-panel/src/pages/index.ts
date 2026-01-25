@@ -1,0 +1,13 @@
+export { LoginPage } from './LoginPage';
+export { DashboardPage } from './DashboardPage';
+export { UsersPage } from './UsersPage';
+export { ReportsPage } from './ReportsPage';
+export { GamesPage } from './GamesPage';
+export { ScoresPage } from './ScoresPage';
+export { TournamentsPage } from './TournamentsPage';
+export { RewardsPage } from './RewardsPage';
+export { FinancialPage } from './FinancialPage';
+export { AuditLogPage } from './AuditLogPage';
+export { SettingsPage } from './SettingsPage';
+export { CommunicationPage } from './CommunicationPage';
+export { SupportPage } from './SupportPage';

@@ -1,0 +1,51 @@
+steps:
+  # Authenticate Docker
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: gcloud
+    args:
+      - auth
+      - configure-docker
+      - ${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev
+
+  # Build both apps
+  - name: node:22.16.0
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        npm install -g pnpm
+        pnpm install --frozen-lockfile
+        pnpm build
+
+  # Build & push API image (includes client assets)
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/api:$COMMIT_SHA
+      - -f ./Dockerfile
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/api:$COMMIT_SHA
+
+  # Deploy only API to Cloud Run
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - api
+      - --image=${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/api:$COMMIT_SHA
+      - --platform=managed
+      - --region=${_CLOUD_RUN_REGION}
+      - --allow-unauthenticated
+      - --port=8080
+
+images:
+  - ${_ARTIFACT_REGISTRY_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/api:$COMMIT_SHA
+
+substitutions:
+  _ARTIFACT_REGISTRY_REGION: europe-west1
+  _REPO_NAME: dice
+  _CLOUD_RUN_REGION: europe-west1

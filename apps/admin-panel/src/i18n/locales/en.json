@@ -1,0 +1,162 @@
+{
+    "app": {
+        "title": "Dice-world Admin",
+        "logout": "Logout"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "users": "Users",
+        "reports": "Reports",
+        "games": "Games & Modes",
+        "scores": "Scores & Rankings",
+        "tournaments": "Tournaments",
+        "rewards": "Rewards",
+        "financial": "Financial",
+        "auditLog": "Audit Log",
+        "settings": "Settings"
+    },
+    "login": {
+        "title": "Admin Login",
+        "subtitle": "Access the Dice-world admin panel",
+        "email": "Email",
+        "password": "Password",
+        "submit": "Sign In",
+        "loading": "Signing in...",
+        "error": "Invalid credentials"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "totalUsers": "Total Users",
+        "activeToday": "Active Today",
+        "gamesPlayed": "Games Played",
+        "openReports": "Open Reports",
+        "newThisWeek": "New this week",
+        "playedToday": "Played today",
+        "pendingReview": "Pending review"
+    },
+    "users": {
+        "title": "User Management",
+        "search": "Search users...",
+        "filters": "Filters",
+        "role": "Role",
+        "status": "Status",
+        "player": "Player",
+        "moderator": "Moderator",
+        "administrator": "Administrator",
+        "active": "Active",
+        "suspended": "Suspended",
+        "banned": "Banned",
+        "actions": "Actions",
+        "view": "View",
+        "edit": "Edit",
+        "suspend": "Suspend",
+        "ban": "Ban",
+        "restore": "Restore",
+        "delete": "Delete",
+        "createdAt": "Created",
+        "lastLogin": "Last Login"
+    },
+    "reports": {
+        "title": "Player Reports",
+        "open": "Open",
+        "inReview": "In Review",
+        "resolved": "Resolved",
+        "reporter": "Reporter",
+        "reported": "Reported User",
+        "reason": "Reason",
+        "date": "Date",
+        "updateStatus": "Update Status"
+    },
+    "games": {
+        "title": "Games & Modes",
+        "name": "Name",
+        "description": "Description",
+        "isActive": "Active",
+        "minPlayers": "Min Players",
+        "maxPlayers": "Max Players",
+        "difficulty": "Difficulty",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "create": "Create Game"
+    },
+    "scores": {
+        "title": "Scores & Rankings",
+        "rankings": "Rankings",
+        "suspicious": "Suspicious Activity",
+        "period": "Period",
+        "global": "All Time",
+        "weekly": "This Week",
+        "monthly": "This Month",
+        "rank": "Rank",
+        "player": "Player",
+        "wins": "Wins",
+        "games": "Games",
+        "winRate": "Win Rate",
+        "resetScores": "Reset Scores"
+    },
+    "tournaments": {
+        "title": "Tournaments & Events",
+        "upcoming": "Upcoming",
+        "name": "Name",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "status": "Status",
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "active": "Active",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "create": "Create Tournament"
+    },
+    "rewards": {
+        "title": "Rewards",
+        "allocate": "Allocate Reward",
+        "type": "Type",
+        "manual": "Manual",
+        "tournament": "Tournament",
+        "achievement": "Achievement",
+        "bonus": "Bonus",
+        "pending": "Pending",
+        "allocated": "Allocated",
+        "claimed": "Claimed",
+        "expired": "Expired"
+    },
+    "financial": {
+        "title": "Financial Overview",
+        "readOnly": "Read-only view",
+        "transactions": "Transactions",
+        "summary": "Summary",
+        "anomalies": "Anomalies",
+        "notAvailable": "Not available: data not tracked yet"
+    },
+    "auditLog": {
+        "title": "Audit Log",
+        "admin": "Admin",
+        "action": "Action",
+        "entity": "Entity",
+        "timestamp": "Timestamp",
+        "details": "Details"
+    },
+    "settings": {
+        "title": "Settings",
+        "language": "Language",
+        "english": "English",
+        "french": "French",
+        "theme": "Theme",
+        "dark": "Dark",
+        "maintenance": "Maintenance Mode"
+    },
+    "common": {
+        "loading": "Loading...",
+        "error": "An error occurred",
+        "save": "Save",
+        "cancel": "Cancel",
+        "confirm": "Confirm",
+        "noData": "No data available",
+        "showing": "Showing",
+        "of": "of",
+        "page": "Page",
+        "previous": "Previous",
+        "next": "Next"
+    }
+}
