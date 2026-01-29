@@ -81,8 +81,8 @@ export function FinancialPage() {
                         key={tab}
                         onClick={() => setActiveTab(tab as any)}
                         className={`px-4 py-3 font-medium transition-colors border-b-2 -mb-px ${activeTab === tab
-                                ? 'text-primary-400 border-primary-400'
-                                : 'text-dark-400 border-transparent hover:text-white'
+                            ? 'text-primary-400 border-primary-400'
+                            : 'text-dark-400 border-transparent hover:text-white'
                             }`}
                     >
                         {t(`financial.${tab}`)}
@@ -99,7 +99,7 @@ export function FinancialPage() {
                     {activeTab === 'summary' && summary && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="card">
-                                <h3 className="text-lg font-semibold text-white mb-4">Deposits</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Coin Purchases</h3>
                                 <div className="space-y-4">
                                     <div className="flex justify-between">
                                         <span className="text-dark-400">Total Transactions</span>
@@ -107,7 +107,7 @@ export function FinancialPage() {
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-dark-400">Total Amount</span>
-                                        <span className="text-green-400 font-bold text-xl">{summary.deposits.totalAmount.toLocaleString()}</span>
+                                        <span className="text-green-400 font-bold text-xl">{summary.deposits.totalAmount.toLocaleString()} Coins</span>
                                     </div>
                                 </div>
                             </div>
@@ -162,7 +162,7 @@ export function FinancialPage() {
                                                         {tx.type}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 text-right text-green-400 font-medium">{tx.amount.toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-right text-green-400 font-medium">{tx.amount.toLocaleString()} Coins</td>
                                                 <td className="px-6 py-4 text-right text-dark-400">{new Date(tx.timestamp).toLocaleDateString()}</td>
                                             </tr>
                                         ))}

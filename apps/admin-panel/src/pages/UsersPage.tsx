@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check } from 'lucide-react';
+import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check, DollarSign } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,6 +14,7 @@ interface User {
     status: string;
     createdAt: string;
     lastLoginAt?: string;
+    balance?: number;
 }
 
 interface UserResponse {
@@ -79,6 +80,9 @@ export function UsersPage() {
                     break;
                 case 'delete':
                     await api.deleteUser(modalAction.user.id);
+                    break;
+                case 'edit_balance':
+                    await api.updateUser(modalAction.user.id, { balance: parseFloat(actionReason) });
                     break;
             }
             setModalAction(null);
@@ -171,6 +175,9 @@ export function UsersPage() {
                                             {t('users.createdAt')}
                                         </th>
                                         <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                            Coins
+                                        </th>
+                                        <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase tracking-wider">
                                             {t('users.actions')}
                                         </th>
                                     </tr>
@@ -205,6 +212,9 @@ export function UsersPage() {
                                             </td>
                                             <td className="px-6 py-4 text-dark-400 text-sm">
                                                 {new Date(user.createdAt).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-yellow-400 font-medium font-mono">
+                                                {user.balance?.toLocaleString() ?? 0}
                                             </td>
                                             <td className="px-6 py-4 text-right relative">
                                                 <button
@@ -246,6 +256,12 @@ export function UsersPage() {
                                                                 <Undo2 className="w-4 h-4 mr-3" /> {t('users.restore')}
                                                             </button>
                                                         )}
+                                                        <button
+                                                            onClick={() => { setActionMenu(null); setModalAction({ type: 'edit_balance', user }); setActionReason(user.balance?.toString() || '0'); }}
+                                                            className="w-full flex items-center px-4 py-3 text-sm text-yellow-400 hover:bg-dark-600 transition-colors"
+                                                        >
+                                                            <DollarSign className="w-4 h-4 mr-3" /> Edit Balance
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
@@ -293,8 +309,22 @@ export function UsersPage() {
                             {modalAction.type === 'restore' && t('users.restore')}
                             {modalAction.type === 'delete' && t('users.delete')}
                             {modalAction.type === 'view' && 'User Details:'}
+                            {modalAction.type === 'edit_balance' && 'Edit Balance:'}
                             {' '}{modalAction.user.firstName} {modalAction.user.lastName}
                         </h3>
+
+                        {modalAction.type === 'edit_balance' && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-dark-300 mb-2">New Balance (Coins)</label>
+                                <input
+                                    type="number"
+                                    value={actionReason}
+                                    onChange={(e) => setActionReason(e.target.value)}
+                                    className="input-field"
+                                    placeholder="Enter amount..."
+                                />
+                            </div>
+                        )}
 
                         {(modalAction.type === 'suspend' || modalAction.type === 'ban') && (
                             <div className="mb-4">

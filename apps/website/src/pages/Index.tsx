@@ -7,10 +7,14 @@ import GameConcept from '@/components/landing/GameConcept';
 import Registration from '@/components/landing/Registration';
 import Download from '@/components/landing/Download';
 import Footer from '@/components/landing/Footer';
+import WhatsAppButton from '@/components/ui/WhatsAppButton';
 
 // Replace these with your actual app store URLs
 const APP_STORE_URL = 'https://apps.apple.com/app/dice-world';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.diceworld';
+
+// Replace with your actual WhatsApp phone number (include country code, e.g., "48123456789")
+const WHATSAPP_PHONE_NUMBER = '';
 
 const Index = () => {
   return (
@@ -26,6 +30,7 @@ const Index = () => {
             <Download appStoreUrl={APP_STORE_URL} playStoreUrl={PLAY_STORE_URL} />
           </main>
           <Footer />
+          <WhatsAppButton phoneNumber={WHATSAPP_PHONE_NUMBER} />
         </div>
       </RegistrationProvider>
     </LanguageProvider>

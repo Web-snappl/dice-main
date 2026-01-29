@@ -13,14 +13,14 @@ const translations: Record<Language, Record<string, string>> = {
     // Header
     'nav.register': 'Register',
     'nav.download': 'Download',
-    
+
     // Hero
     'hero.title': 'Roll the Dice.',
     'hero.titleHighlight': 'Master the Game.',
     'hero.subtitle': 'Where luck meets strategy. Dice-world is the online dice game that rewards smart decisions and bold moves.',
     'hero.cta.register': 'Create Account',
     'hero.cta.download': 'Download App',
-    
+
     // How it works
     'howItWorks.title': 'How It Works',
     'howItWorks.step1.title': 'Register',
@@ -29,7 +29,7 @@ const translations: Record<Language, Record<string, string>> = {
     'howItWorks.step2.desc': 'Get the app on iOS or Android',
     'howItWorks.step3.title': 'Play',
     'howItWorks.step3.desc': 'Start playing Dice-world instantly',
-    
+
     // Game Concept
     'concept.title': 'Strategy Meets Luck',
     'concept.subtitle': 'Every roll counts. Every decision matters.',
@@ -40,7 +40,7 @@ const translations: Record<Language, Record<string, string>> = {
     'concept.feature3.title': 'Group Games',
     'concept.feature3.desc': 'Compete with friends in multiplayer matches',
     'concept.description': 'Fast games. Real thinking. Pure excitement.',
-    
+
     // Registration
     'register.title': 'Join the Game',
     'register.subtitle': 'Create your account and start playing',
@@ -54,31 +54,34 @@ const translations: Record<Language, Record<string, string>> = {
     'register.error.passwordMatch': 'Passwords do not match',
     'register.error.email': 'Please enter a valid email',
     'register.error.password': 'Password must be at least 8 characters',
-    
+
     // Download
     'download.title': 'Download Dice-world',
     'download.subtitle': 'Available on iOS and Android. Free to play.',
     'download.free': 'Free at launch',
     'download.appStore': 'Download on the App Store',
     'download.playStore': 'Get it on Google Play',
-    
+
     // Footer
     'footer.terms': 'Terms of Service',
     'footer.privacy': 'Privacy Policy',
     'footer.copyright': '© 2025 Dice-world. All rights reserved.',
+
+    // WhatsApp
+    'whatsapp.label': 'Contact Support',
   },
   fr: {
     // Header
     'nav.register': 'S\'inscrire',
     'nav.download': 'Télécharger',
-    
+
     // Hero
     'hero.title': 'Lancez les dés.',
     'hero.titleHighlight': 'Maîtrisez le jeu.',
     'hero.subtitle': 'Là où la chance rencontre la stratégie. Dice-world est le jeu de dés en ligne qui récompense les décisions intelligentes et les coups audacieux.',
     'hero.cta.register': 'Créer un compte',
     'hero.cta.download': 'Télécharger',
-    
+
     // How it works
     'howItWorks.title': 'Comment ça marche',
     'howItWorks.step1.title': 'Inscription',
@@ -87,7 +90,7 @@ const translations: Record<Language, Record<string, string>> = {
     'howItWorks.step2.desc': 'Obtenez l\'app sur iOS ou Android',
     'howItWorks.step3.title': 'Jouer',
     'howItWorks.step3.desc': 'Commencez à jouer à Dice-world instantanément',
-    
+
     // Game Concept
     'concept.title': 'La stratégie rencontre la chance',
     'concept.subtitle': 'Chaque lancer compte. Chaque décision importe.',
@@ -98,7 +101,7 @@ const translations: Record<Language, Record<string, string>> = {
     'concept.feature3.title': 'Jeux de groupe',
     'concept.feature3.desc': 'Jouez avec vos amis en multijoueur',
     'concept.description': 'Parties rapides. Réflexion réelle. Pure excitation.',
-    
+
     // Registration
     'register.title': 'Rejoignez le jeu',
     'register.subtitle': 'Créez votre compte et commencez à jouer',
@@ -112,18 +115,21 @@ const translations: Record<Language, Record<string, string>> = {
     'register.error.passwordMatch': 'Les mots de passe ne correspondent pas',
     'register.error.email': 'Veuillez entrer un email valide',
     'register.error.password': 'Le mot de passe doit contenir au moins 8 caractères',
-    
+
     // Download
     'download.title': 'Téléchargez Dice-world',
     'download.subtitle': 'Disponible sur iOS et Android. Gratuit.',
     'download.free': 'Gratuit au lancement',
     'download.appStore': 'Télécharger sur l\'App Store',
     'download.playStore': 'Disponible sur Google Play',
-    
+
     // Footer
     'footer.terms': 'Conditions d\'utilisation',
     'footer.privacy': 'Politique de confidentialité',
     'footer.copyright': '© 2025 Dice-world. Tous droits réservés.',
+
+    // WhatsApp
+    'whatsapp.label': 'Contacter le support',
   },
 };
 

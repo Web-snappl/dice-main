@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Users, Activity, Gamepad2, Flag, TrendingUp, TrendingDown } from 'lucide-react';
+import { Users, Activity, Gamepad2, Flag, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { api } from '../api/client';
 
 interface DashboardData {
@@ -16,6 +16,11 @@ interface DashboardData {
         totalPlayed: number;
         playedToday: number;
         playedThisWeek: number;
+    };
+    financial?: {
+        coinsInCirculation: number;
+        coinsPurchasedToday: number;
+        coinsPurchasedWeek: number;
     };
     notes?: {
         averagePlaytime?: string;
@@ -101,6 +106,15 @@ export function DashboardPage() {
             icon: Flag,
             trend: reportStats?.open && reportStats.open > 5 ? 'down' : 'up',
             color: 'from-orange-500 to-orange-600',
+        },
+        {
+            title: 'Coins in Circulation',
+            value: dashboard?.financial?.coinsInCirculation || 0,
+            change: `+${dashboard?.financial?.coinsPurchasedWeek?.toLocaleString() || 0}`,
+            changeLabel: 'Purchased this week',
+            icon: DollarSign,
+            trend: 'up',
+            color: 'from-yellow-400 to-yellow-600',
         },
     ];
 
