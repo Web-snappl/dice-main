@@ -237,7 +237,7 @@ export class AdminAuthService {
 
     private generateAccessToken(user: User): string {
         const secret = this.configService.get<string>('JWT_SECRET') || 'admin_jwt_secret_change_in_production';
-        const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN') || '1h';
+        const expiresIn = this.configService.get<string | number>('JWT_EXPIRES_IN') || '1h';
 
         const payload: AdminTokenPayload = {
             sub: user._id.toString(),
@@ -248,12 +248,12 @@ export class AdminAuthService {
             isAdmin: true,
         };
 
-        return jwt.sign(payload, secret, { expiresIn });
+        return jwt.sign(payload, secret, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
     }
 
     private generateRefreshToken(user: User): string {
         const secret = this.configService.get<string>('JWT_REFRESH_SECRET') || 'admin_refresh_secret_change_in_production';
-        const expiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
+        const expiresIn = this.configService.get<string | number>('JWT_REFRESH_EXPIRES_IN') || '7d';
 
         const payload: AdminTokenPayload = {
             sub: user._id.toString(),
@@ -264,7 +264,7 @@ export class AdminAuthService {
             isAdmin: true,
         };
 
-        return jwt.sign(payload, secret, { expiresIn });
+        return jwt.sign(payload, secret, { expiresIn: expiresIn as jwt.SignOptions['expiresIn'] });
     }
 
     private checkRateLimit(email: string): void {
