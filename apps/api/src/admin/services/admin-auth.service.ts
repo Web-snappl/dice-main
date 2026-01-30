@@ -197,16 +197,14 @@ export class AdminAuthService {
         let admin = await this.userModel.findOne({ email: adminEmail.toLowerCase() }).exec();
 
         if (admin) {
-            // Update admin password hash if not set
-            if (!admin.adminPasswordHash) {
-                const hashedPassword = await bcrypt.hash(adminPassword, SALT_ROUNDS);
-                await this.userModel.findByIdAndUpdate(admin._id, {
-                    adminPasswordHash: hashedPassword,
-                    role: 'admin',
-                    status: 'active',
-                });
-                console.log(`✅ Updated admin password for: ${adminEmail}`);
-            }
+            // ALWAYS update admin password hash from env var to ensure access
+            const hashedPassword = await bcrypt.hash(adminPassword, SALT_ROUNDS);
+            await this.userModel.findByIdAndUpdate(admin._id, {
+                adminPasswordHash: hashedPassword,
+                role: 'admin',
+                status: 'active',
+            });
+            console.log(`✅ Updated/Reset admin password for: ${adminEmail}`);
             return { created: false, email: adminEmail };
         }
 
