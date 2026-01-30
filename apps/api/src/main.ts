@@ -10,7 +10,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api')
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  const port = process.env.PORT || 3000;
+  // Force port 3000 to rule out env var confusion
+  const port = 3000;
   await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 API running on http://0.0.0.0:${port}/api`);
