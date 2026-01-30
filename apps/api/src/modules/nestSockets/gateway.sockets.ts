@@ -40,7 +40,7 @@ export class AppGateway implements OnGatewayInit, OnGatewayConnection, OnGateway
     }
 
     afterInit(server: Server) {
-        this.logger.log('after init', server)
+        this.logger.log('AppGateway initialized');
     }
 
     handleConnection(client: Socket) {
