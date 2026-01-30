@@ -6,15 +6,25 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  app.enableCors({ origin: '*' })
-  app.setGlobalPrefix('api')
+  // Enhanced CORS configuration
+  app.enableCors({
+    origin: true, // Allow all origins (reflects request origin)
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
+
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  // Force port 3000 to rule out env var confusion
-  const port = 3000;
+  // Use Railway's PORT env var (they set it, we must listen on it)
+  const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 API running on http://0.0.0.0:${port}/api`);
 }
 
 bootstrap();
+
