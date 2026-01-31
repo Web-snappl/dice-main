@@ -208,6 +208,9 @@ export class AdminAuthService {
             return { created: false, email: adminEmail };
         }
 
+        // Create new admin account if not found
+        // ... creation logic ...
+
         // Create new admin account
         const hashedPassword = await bcrypt.hash(adminPassword, SALT_ROUNDS);
         const newAdmin = new this.userModel({
