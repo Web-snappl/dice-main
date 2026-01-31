@@ -6,9 +6,9 @@ RUN npm install -g pnpm
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json ./apps/api/
-COPY apps/client/package.json ./apps/client/
-COPY apps/admin-panel/package.json ./apps/admin-panel/
-COPY apps/website/package.json ./apps/website/
+COPY apps/web-client/package.json ./apps/web-client/
+COPY apps/web-admin/package.json ./apps/web-admin/
+COPY apps/web-landing/package.json ./apps/web-landing/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
@@ -35,7 +35,7 @@ RUN mkdir -p /app/apps/api/public
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy built client static assets into public/
-COPY --from=builder /app/apps/website/dist/ ./apps/api/public/
+COPY --from=builder /app/apps/web-landing/dist/ ./apps/api/public/
 
 WORKDIR /app/apps/api
 EXPOSE 8080
