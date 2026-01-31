@@ -65,7 +65,9 @@ export class AuthService {
             firstName: firstName,
             lastName: lastName,
             phoneNumber: phoneNumber,
-            role: role
+            role: role || 'user',
+            status: 'active',
+            createdAt: new Date(),
         })
         const savedUser: any = await newUser.save();
 

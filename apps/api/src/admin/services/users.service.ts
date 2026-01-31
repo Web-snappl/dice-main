@@ -42,6 +42,9 @@ export class UsersService {
             filter.status = status;
         }
 
+        console.log('UsersService.findAll filter:', JSON.stringify(filter));
+
+
         const [users, total] = await Promise.all([
             this.userModel
                 .find(filter)
