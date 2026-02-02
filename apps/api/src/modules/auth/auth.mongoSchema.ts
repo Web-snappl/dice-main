@@ -74,6 +74,9 @@ export class User extends Document {
   @Prop({ required: false })
   isStripeConnected: boolean;
 
+  @Prop({ required: false, default: 0 })
+  balance: number;
+
   @Prop({ type: Object, required: false })
   deferredOnboarding: deferredOnboarding;
 

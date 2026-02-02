@@ -5,7 +5,7 @@ import { Document } from 'mongoose';
 export type AuditAction =
     | 'CREATE_USER' | 'UPDATE_USER' | 'DELETE_USER'
     | 'SUSPEND_USER' | 'BAN_USER' | 'RESTORE_USER'
-    | 'CHANGE_ROLE'
+    | 'CHANGE_ROLE' | 'UPDATE_BALANCE'
     | 'CREATE_GAME' | 'UPDATE_GAME' | 'DELETE_GAME'
     | 'ACTIVATE_GAME' | 'DEACTIVATE_GAME'
     | 'RESET_SCORE'

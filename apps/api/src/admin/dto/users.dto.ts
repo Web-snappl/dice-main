@@ -52,6 +52,11 @@ export class UpdateUserDto {
     @IsEnum(['active', 'suspended', 'banned'])
     @IsOptional()
     status?: string;
+
+    @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
+    balance?: number;
 }
 
 export class SuspendUserDto {
