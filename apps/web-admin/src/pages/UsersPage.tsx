@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check, DollarSign } from 'lucide-react';
+import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check, DollarSign, AlertCircle } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,6 +37,7 @@ export function UsersPage() {
     const [page, setPage] = useState(1);
     const [actionMenu, setActionMenu] = useState<string | null>(null);
     const [modalAction, setModalAction] = useState<{ type: string; user: User } | null>(null);
+    const [actionReason, setActionReason] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
