@@ -48,7 +48,7 @@ export class UsersService {
         const [users, total] = await Promise.all([
             this.userModel
                 .find(filter)
-                .select('-password -adminPasswordHash +balance')
+                .select('-password -adminPasswordHash')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
