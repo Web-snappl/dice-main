@@ -37,7 +37,7 @@ export function UsersPage() {
     const [page, setPage] = useState(1);
     const [actionMenu, setActionMenu] = useState<string | null>(null);
     const [modalAction, setModalAction] = useState<{ type: string; user: User } | null>(null);
-    const [actionReason, setActionReason] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         document.getElementById('page-title')!.textContent = t('users.title');
@@ -49,6 +49,7 @@ export function UsersPage() {
 
     const loadUsers = async () => {
         setIsLoading(true);
+        setError(null);
         try {
             const params: Record<string, any> = { page, limit: 20 };
             if (search) params.search = search;
@@ -57,8 +58,9 @@ export function UsersPage() {
 
             const response = await api.getUsers(params);
             setData(response);
-        } catch (error) {
-            console.error('Failed to load users:', error);
+        } catch (err: any) {
+            console.error('Failed to load users:', err);
+            setError(err.message || 'Failed to load users');
         } finally {
             setIsLoading(false);
         }
@@ -155,6 +157,14 @@ export function UsersPage() {
                 {isLoading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center text-red-400">
+                        <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="font-medium">{error}</p>
+                        <button onClick={loadUsers} className="mt-4 btn-secondary">
+                            Try Again
+                        </button>
                     </div>
                 ) : (
                     <>
