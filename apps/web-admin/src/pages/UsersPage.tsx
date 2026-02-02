@@ -183,90 +183,93 @@ export function UsersPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-dark-700">
-                                    {data?.users.map((user) => (
-                                        <tr key={user.id} className="hover:bg-dark-700/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center mr-4">
-                                                        <span className="text-sm font-bold text-white">
-                                                            {user.firstName?.[0]}{user.lastName?.[0]}
-                                                        </span>
+                                    {data?.users.map((user) => {
+                                        console.log(`User ${user.id} balance:`, user.balance);
+                                        return (
+                                            <tr key={user.id} className="hover:bg-dark-700/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center">
+                                                        <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center mr-4">
+                                                            <span className="text-sm font-bold text-white">
+                                                                {user.firstName?.[0]}{user.lastName?.[0]}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-white font-medium">
+                                                                {user.firstName} {user.lastName}
+                                                            </p>
+                                                            <p className="text-dark-400 text-sm">{user.email || user.phoneNumber}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-white font-medium">
-                                                            {user.firstName} {user.lastName}
-                                                        </p>
-                                                        <p className="text-dark-400 text-sm">{user.email || user.phoneNumber}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getRoleBadge(user.role)}`}>
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(user.status || 'active')}`}>
-                                                    {user.status || 'active'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-dark-400 text-sm">
-                                                {new Date(user.createdAt).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-yellow-400 font-medium font-mono">
-                                                {user.balance?.toLocaleString() ?? 0}
-                                            </td>
-                                            <td className="px-6 py-4 text-right relative">
-                                                <button
-                                                    onClick={() => setActionMenu(actionMenu === user.id ? null : user.id)}
-                                                    className="p-2 hover:bg-dark-600 rounded-lg transition-colors"
-                                                >
-                                                    <MoreVertical className="w-5 h-5 text-dark-400" />
-                                                </button>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getRoleBadge(user.role)}`}>
+                                                        {user.role}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusBadge(user.status || 'active')}`}>
+                                                        {user.status || 'active'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-dark-400 text-sm">
+                                                    {new Date(user.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 text-right text-yellow-400 font-medium font-mono">
+                                                    {user.balance?.toLocaleString() ?? 0}
+                                                </td>
+                                                <td className="px-6 py-4 text-right relative">
+                                                    <button
+                                                        onClick={() => setActionMenu(actionMenu === user.id ? null : user.id)}
+                                                        className="p-2 hover:bg-dark-600 rounded-lg transition-colors"
+                                                    >
+                                                        <MoreVertical className="w-5 h-5 text-dark-400" />
+                                                    </button>
 
-                                                {actionMenu === user.id && (
-                                                    <div className="absolute right-6 top-12 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-10">
-                                                        <button
-                                                            onClick={() => { setActionMenu(null); setModalAction({ type: 'view', user }); }}
-                                                            className="w-full flex items-center px-4 py-3 text-sm text-dark-200 hover:bg-dark-600 transition-colors"
-                                                        >
-                                                            <Eye className="w-4 h-4 mr-3" /> {t('users.view')}
-                                                        </button>
-                                                        {user.status === 'active' && (
+                                                    {actionMenu === user.id && (
+                                                        <div className="absolute right-6 top-12 w-48 bg-dark-700 border border-dark-600 rounded-lg shadow-xl z-10">
                                                             <button
-                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'suspend', user }); }}
+                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'view', user }); }}
+                                                                className="w-full flex items-center px-4 py-3 text-sm text-dark-200 hover:bg-dark-600 transition-colors"
+                                                            >
+                                                                <Eye className="w-4 h-4 mr-3" /> {t('users.view')}
+                                                            </button>
+                                                            {user.status === 'active' && (
+                                                                <button
+                                                                    onClick={() => { setActionMenu(null); setModalAction({ type: 'suspend', user }); }}
+                                                                    className="w-full flex items-center px-4 py-3 text-sm text-yellow-400 hover:bg-dark-600 transition-colors"
+                                                                >
+                                                                    <UserX className="w-4 h-4 mr-3" /> {t('users.suspend')}
+                                                                </button>
+                                                            )}
+                                                            {isAdmin && user.status !== 'banned' && (
+                                                                <button
+                                                                    onClick={() => { setActionMenu(null); setModalAction({ type: 'ban', user }); }}
+                                                                    className="w-full flex items-center px-4 py-3 text-sm text-red-400 hover:bg-dark-600 transition-colors"
+                                                                >
+                                                                    <Ban className="w-4 h-4 mr-3" /> {t('users.ban')}
+                                                                </button>
+                                                            )}
+                                                            {isAdmin && (user.status === 'suspended' || user.status === 'banned') && (
+                                                                <button
+                                                                    onClick={() => { setActionMenu(null); setModalAction({ type: 'restore', user }); }}
+                                                                    className="w-full flex items-center px-4 py-3 text-sm text-green-400 hover:bg-dark-600 transition-colors"
+                                                                >
+                                                                    <Undo2 className="w-4 h-4 mr-3" /> {t('users.restore')}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'edit_balance', user }); setActionReason(user.balance?.toString() || '0'); }}
                                                                 className="w-full flex items-center px-4 py-3 text-sm text-yellow-400 hover:bg-dark-600 transition-colors"
                                                             >
-                                                                <UserX className="w-4 h-4 mr-3" /> {t('users.suspend')}
+                                                                <DollarSign className="w-4 h-4 mr-3" /> Edit Balance
                                                             </button>
-                                                        )}
-                                                        {isAdmin && user.status !== 'banned' && (
-                                                            <button
-                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'ban', user }); }}
-                                                                className="w-full flex items-center px-4 py-3 text-sm text-red-400 hover:bg-dark-600 transition-colors"
-                                                            >
-                                                                <Ban className="w-4 h-4 mr-3" /> {t('users.ban')}
-                                                            </button>
-                                                        )}
-                                                        {isAdmin && (user.status === 'suspended' || user.status === 'banned') && (
-                                                            <button
-                                                                onClick={() => { setActionMenu(null); setModalAction({ type: 'restore', user }); }}
-                                                                className="w-full flex items-center px-4 py-3 text-sm text-green-400 hover:bg-dark-600 transition-colors"
-                                                            >
-                                                                <Undo2 className="w-4 h-4 mr-3" /> {t('users.restore')}
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => { setActionMenu(null); setModalAction({ type: 'edit_balance', user }); setActionReason(user.balance?.toString() || '0'); }}
-                                                            className="w-full flex items-center px-4 py-3 text-sm text-yellow-400 hover:bg-dark-600 transition-colors"
-                                                        >
-                                                            <DollarSign className="w-4 h-4 mr-3" /> Edit Balance
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

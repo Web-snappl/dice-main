@@ -112,7 +112,8 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    @apply outline-ring/50;
   }
 
   body {
@@ -174,13 +175,13 @@
 
 @font-face {
   font-family: "Inter";
-    src: local("Inter-Regular"), url("./assets/fonts/Inter/Inter-VariableFont_opsz,wght.ttf") format("truetype");
-    font-weight: normal;
-    font-style: normal;  
-  }
+  src: local("Inter-Regular"), url("./assets/fonts/Inter/Inter-VariableFont_opsz,wght.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
 
 @font-face {
   font-family: "Lobster";
-    src: local("Lobster-Regular"), url("./assets/fonts/Lobster/Lobster-Regular.ttf") format("truetype");
-    font-weight: normal;
-  }
+  src: local("Lobster-Regular"), url("./assets/fonts/Lobster/Lobster-Regular.ttf") format("truetype");
+  font-weight: normal;
+}

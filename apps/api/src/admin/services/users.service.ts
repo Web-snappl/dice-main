@@ -48,7 +48,7 @@ export class UsersService {
         const [users, total] = await Promise.all([
             this.userModel
                 .find(filter)
-                .select('-password -adminPasswordHash')
+                .select('-password -adminPasswordHash +balance')
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit)
@@ -142,8 +142,12 @@ export class UsersService {
         if (dto.phoneNumber) updateData.phoneNumber = dto.phoneNumber;
         if (dto.role) updateData.role = dto.role;
         if (dto.status) updateData.status = dto.status;
+        if (typeof dto.balance === 'number') updateData.balance = dto.balance;
+
+        console.log(`[DEBUG] Updating user ${id} balance. DTO balance: ${dto.balance}, updateData:`, updateData);
 
         const updatedUser = await this.userModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
+        console.log(`[DEBUG] Updated user from DB:`, updatedUser);
 
         // Log role change separately if applicable
         if (dto.role && dto.role !== user.role) {
@@ -156,6 +160,21 @@ export class UsersService {
                 beforeSnapshot: { role: user.role },
                 afterSnapshot: { role: dto.role },
                 description: `Changed role from ${user.role} to ${dto.role}`,
+                request,
+            });
+        }
+
+        // Log balance change if applicable
+        if (typeof dto.balance === 'number' && dto.balance !== user.balance) {
+            await this.auditLogService.log({
+                adminId: admin.userId,
+                adminEmail: admin.email,
+                action: 'UPDATE_BALANCE',
+                entityType: 'USER',
+                entityId: id,
+                beforeSnapshot: { balance: user.balance },
+                afterSnapshot: { balance: dto.balance },
+                description: `Changed balance from ${user.balance ?? 0} to ${dto.balance}`,
                 request,
             });
         }
@@ -307,6 +326,7 @@ export class UsersService {
             phoneNumber: user.phoneNumber,
             role: user.role,
             status: user.status || 'active',
+            balance: user.balance,
             photoURL: user.photoURL,
             isStripeConnected: user.isStripeConnected,
             suspendedAt: user.suspendedAt,
