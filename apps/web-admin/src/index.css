@@ -13,18 +13,18 @@
   --color-primary-800: #86198f;
   --color-primary-900: #701a75;
 
-  /* Dark color palette */
-  --color-dark-50: #f8fafc;
-  --color-dark-100: #f1f5f9;
-  --color-dark-200: #e2e8f0;
-  --color-dark-300: #cbd5e1;
-  --color-dark-400: #94a3b8;
-  --color-dark-500: #64748b;
-  --color-dark-600: #475569;
-  --color-dark-700: #334155;
-  --color-dark-800: #1e293b;
-  --color-dark-900: #0f172a;
-  --color-dark-950: #020617;
+  /* Dark color palette - Neutral Grays */
+  --color-dark-50: #fafafa;
+  --color-dark-100: #f5f5f5;
+  --color-dark-200: #e5e5e5;
+  --color-dark-300: #d4d4d4;
+  --color-dark-400: #a3a3a3;
+  --color-dark-500: #737373;
+  --color-dark-600: #525252;
+  --color-dark-700: #404040;
+  --color-dark-800: #262626;
+  --color-dark-900: #1a1a1a;
+  --color-dark-950: #0a0a0a;
 }
 
 :root {
