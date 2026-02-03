@@ -77,26 +77,37 @@ export class AuthService {
             firstName: savedUser.firstName,
             lastName: savedUser.lastName,
             phoneNumber: savedUser.phoneNumber,
-            role: savedUser.role
+            role: savedUser.role,
+            balance: savedUser.balance || 0
         }
     }
 
-    async login(authHeader: string, phoneNumber: string, password: string): Promise<UserResponse> {
+    async login(authHeader: string, phoneNumber: string, password: string, email?: string): Promise<UserResponse> {
 
         if (authHeader !== process.env.CRYPTOGRAPHY_SECRET) return { status: 401, message: 'Invalid or missing auth header token' }
 
         const encryptedPassword = this.encrypt(password)
 
-        const user: any = await this.userModel.findOne({ phoneNumber: phoneNumber, password: encryptedPassword }).exec()
-        if (!user) throw new BadRequestException('Invalid email or password')
+        const query: any = { password: encryptedPassword };
+        if (phoneNumber) {
+            query.phoneNumber = phoneNumber;
+        } else if (email) {
+            query.email = email;
+        } else {
+            throw new BadRequestException('Please provide email or phone number');
+        }
+
+        const user: any = await this.userModel.findOne(query).exec()
+        if (!user) throw new BadRequestException('Invalid credentials')
 
         return {
             uid: user._id.toString(),
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
-            phoneNumber: phoneNumber,
-            role: user.role
+            phoneNumber: user.phoneNumber,
+            role: user.role,
+            balance: user.balance || 0
         }
     }
 

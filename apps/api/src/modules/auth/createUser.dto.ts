@@ -32,7 +32,8 @@ export class UserDto {
 
 export class LoginDto {
     @IsString()
-    phoneNumber: string;
+    @IsOptional()
+    phoneNumber?: string;
 
     @IsString()
     password: string;
@@ -62,6 +63,7 @@ export interface UserReturnType {
     phoneNumber: string;
     role: UserRole;
     photoURL?: string;
+    balance?: number;
 }
 
 export interface AuthError {
