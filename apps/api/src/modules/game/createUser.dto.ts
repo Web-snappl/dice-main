@@ -11,6 +11,7 @@ export class UserDto {
     winsAgainst?: string[]
     dice1?: number
     dice2?: number
+    betAmount?: number
 }
 
 export type GuessGameUser = UserDto & {

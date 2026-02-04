@@ -4,6 +4,7 @@ import { BadRequestException, Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { LiveUser } from './liveUser.mongoSchema'
+import { User } from '../auth/auth.mongoSchema';
 import { GuessGameUserList, UserList, UserResponse } from './createUser.dto';
 import { getRandomInt } from 'src/common/random'
 import * as _ from "lodash";
@@ -13,6 +14,7 @@ import { GameHistoryModel } from 'src/common/gameHistory.mongoSchema';
 export class GameService {
     constructor(
         @InjectModel(LiveUser.name) private readonly userModel: Model<LiveUser>,
+        @InjectModel('users') private readonly persistentUserModel: Model<User>,
         @InjectModel(GameHistoryModel.name) private readonly gameHistoryModel: Model<GameHistoryModel>,
 
     ) { }
@@ -63,7 +65,7 @@ export class GameService {
         return sortedList
     }
 
-    rollDice(userList: UserList) {
+    async rollDice(userList: UserList) {
         if (!userList) throw new BadRequestException({ message: 'user list is undefined' })
         if (!userList.length) throw new BadRequestException({ message: 'user list length is 0' })
         if (userList.length < 2) throw new BadRequestException({ message: 'user list length is less than 2' })
@@ -73,7 +75,11 @@ export class GameService {
             winList = this.rollDiceForEachUser(userList)
             const against = userList.filter((i) => i.uid !== winList[0].uid)[0]
             winList[0].winsAgainst = [against.uid]
-            this.addToHistory(userList)
+
+            // Process Transaction for 2 players
+            await this.processGameTransactions(winList);
+
+            await this.addToHistory(userList)
             return winList
         }
 
@@ -96,7 +102,11 @@ export class GameService {
                     originalItem.winsAgainst.push(userList[index + 1].uid)
                 }
             })
-            this.addToHistory(userList)
+
+            // Process Transaction for multiple players
+            await this.processGameTransactions(userList);
+
+            await this.addToHistory(userList)
             return userList
         }
         return userList
@@ -128,5 +138,35 @@ export class GameService {
         })
 
         return userList
+    }
+
+    async processGameTransactions(userList: UserList) {
+        // Find winner (assuming one winner for now based on logic)
+        const winner = userList.find(u => u.winner);
+
+        for (const user of userList) {
+            // Skip bots or users without UIDs (if any) or existing logic
+            if (user.uid === 'dealer-bot' || !user.betAmount || user.betAmount <= 0) continue;
+
+            const isWinner = user.winner === true;
+            let balanceChange = -user.betAmount; // Deduct bet
+
+            if (isWinner) {
+                // If winner, they get their bet back + winnings
+                // Assuming 5x multiplier for now to match mobile client visual logic generally
+                // But safer to just deduct bet if we can't be sure of win amount.
+                // However, user will LOSE money if we don't credit back.
+                // Since this is "Unify Game Funding", users just want to use their balance.
+                // We will add 5x win amount.
+                balanceChange += (user.betAmount * 5);
+            }
+
+            console.log(`Processing transaction for ${user.uid}: ${balanceChange}`);
+
+            await this.persistentUserModel.findOneAndUpdate(
+                { uid: user.uid },
+                { $inc: { balance: balanceChange } }
+            );
+        }
     }
 }

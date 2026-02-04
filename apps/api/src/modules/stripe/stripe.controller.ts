@@ -1,4 +1,4 @@
-import { Controller, ValidationPipe, Body } from '@nestjs/common';
+import { Controller, ValidationPipe, Body, Post } from '@nestjs/common';
 import { CreateSellerDto, SellerResponse } from './createSeller.dto';
 import { StripeService } from './stripe.service';
 
@@ -13,5 +13,20 @@ export class StripeController {
             createSellerDto.email,
             createSellerDto.country
         );
+    }
+
+    @Post('create-deposit-intent')
+    async createDepositIntent(@Body() body: { uid: string, amount: number }) {
+        return this.StripeService.createDepositIntent(body.uid, body.amount);
+    }
+
+    @Post('create-login-link')
+    async createLoginLink(@Body() body: { stripeAccountId: string }) {
+        return this.StripeService.createLoginLink(body.stripeAccountId);
+    }
+
+    @Post('withdraw')
+    async withdraw(@Body() body: { uid: string, amount: number }) {
+        return this.StripeService.createWithdrawal(body.uid, body.amount);
     }
 }

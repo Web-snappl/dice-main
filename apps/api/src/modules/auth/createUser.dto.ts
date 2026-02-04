@@ -1,6 +1,6 @@
 import { IsString, IsEmail, IsIn, MinLength, Matches, IsNumber, IsOptional } from 'class-validator';
 
-type UserRole = 'user' | 'User' | 'admin' | 'Admin'
+type UserRole = 'user' | 'User' | 'moderator' | 'admin' | 'Admin'
 
 const PASSWORD_RULES = {
     message: 'Password must include letters, numbers and special character(s)',

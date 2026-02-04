@@ -162,7 +162,7 @@ class User {
   final String name;
   final String email;
   final String? phone;
-  final String? password;
+  // Password removed for security - no longer stored locally
   final UserWallet wallet;
   final String avatarUrl;
   final UserRole role;
@@ -175,7 +175,6 @@ class User {
     required this.name,
     required this.email,
     this.phone,
-    this.password,
     required this.wallet,
     required this.avatarUrl,
     UserRole? role,
@@ -190,7 +189,7 @@ class User {
       name: json['name'] ?? json['displayName'] ?? 'Unknown User',
       email: json['email'] ?? '',
       phone: json['phone'] ?? json['phoneNumber'],
-      password: json['password'],
+      // Password intentionally not loaded from JSON for security
       wallet: json['wallet'] != null 
           ? UserWallet.fromJson(json['wallet'])
           : UserWallet(balance: json['balance']?.toDouble() ?? 0, totalDeposited: 0, totalWithdrawn: 0),
@@ -228,7 +227,6 @@ class User {
     String? name,
     String? email,
     String? phone,
-    String? password,
     UserWallet? wallet,
     String? avatarUrl,
     UserRole? role,
@@ -241,7 +239,6 @@ class User {
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      password: password ?? this.password,
       wallet: wallet ?? this.wallet,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       role: role ?? this.role,

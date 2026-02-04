@@ -1,38 +1,64 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage.dart';
+import '../config/app_config.dart';
 
 class ApiClient {
   static void _log(String message, {bool isError = false}) {
     if (kDebugMode) debugPrint('[ApiClient] $message');
   }
+
   static Future<String> getBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    // Default to production URL if not set in settings
-    if (kDebugMode) {
-      return prefs.getString('api_base_url') ?? 'http://10.0.2.2:3000';
+    // Allow override from settings, otherwise use AppConfig
+    final override = prefs.getString('api_base_url');
+    if (override != null && override.isNotEmpty) {
+      return override;
     }
-    return prefs.getString('api_base_url') ?? 
-        'https://api-production-6de9.up.railway.app';
+    // Use platform-specific URL for development (iOS vs Android)
+    if (AppConfig.isDevelopment) {
+      try {
+        return Platform.isIOS ? AppConfig.apiBaseUrlIos : AppConfig.apiBaseUrl;
+      } catch (_) {
+        return AppConfig.apiBaseUrl;
+      }
+    }
+    return AppConfig.apiBaseUrl;
   }
 
+  /// Make an authenticated API request with JWT token
   static Future<Map<String, dynamic>> fetchFromBackend(
     String url,
     Map<String, String>? headers,
     String? body,
-    String method,
-  ) async {
+    String method, {
+    bool requiresAuth = false,
+  }) async {
     _log('[API Request] $method $url');
-    
+
     try {
       final uri = Uri.parse(url);
       final request = http.Request(method, uri);
-      
-      if (headers != null) {
-        request.headers.addAll(headers);
+
+      // Add default headers
+      final requestHeaders = <String, String>{
+        'Content-Type': 'application/json',
+        ...?headers,
+      };
+
+      // Add auth token if required
+      if (requiresAuth) {
+        final token = await SecureStorage.getAccessToken();
+        if (token != null && token.isNotEmpty) {
+          requestHeaders['Authorization'] = 'Bearer $token';
+        }
       }
-      
+
+      request.headers.addAll(requestHeaders);
+
       if (body != null) {
         request.body = body;
       }
@@ -40,8 +66,18 @@ class ApiClient {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      // Handle token expiry - attempt refresh
+      if (response.statusCode == 401 && requiresAuth) {
+        final refreshed = await _refreshToken();
+        if (refreshed) {
+          // Retry the request with new token
+          return fetchFromBackend(url, headers, body, method, requiresAuth: true);
+        }
+        throw Exception('Session expired. Please login again.');
+      }
+
       Map<String, dynamic> data;
-      
+
       final contentType = response.headers['content-type'] ?? '';
       if (contentType.contains('application/json')) {
         data = json.decode(response.body) as Map<String, dynamic>;
@@ -49,7 +85,8 @@ class ApiClient {
         if (response.statusCode == 404) {
           throw Exception('Endpoint not found (404): $url.');
         }
-        throw Exception('Server Error (${response.statusCode}): ${response.body.substring(0, response.body.length > 50 ? 50 : response.body.length)}...');
+        throw Exception(
+            'Server Error (${response.statusCode}): ${response.body.substring(0, response.body.length > 50 ? 50 : response.body.length)}...');
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -58,11 +95,11 @@ class ApiClient {
         }
         throw Exception(data['message'] ?? 'API Error: ${response.statusCode}');
       }
-      
+
       return data;
     } catch (e) {
       _log('[API Error] $e', isError: true);
-      if (e.toString().contains('Failed host lookup') || 
+      if (e.toString().contains('Failed host lookup') ||
           e.toString().contains('NetworkError') ||
           e.toString().contains('SocketException')) {
         throw Exception('Connection Failed: Could not reach backend.');
@@ -70,9 +107,68 @@ class ApiClient {
       rethrow;
     }
   }
+
+  /// Attempt to refresh the access token
+  static Future<bool> _refreshToken() async {
+    try {
+      final refreshToken = await SecureStorage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        return false;
+      }
+
+      final baseUrl = await getBaseUrl();
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'refreshToken': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        await SecureStorage.updateAccessToken(data['accessToken']);
+        _log('Token refreshed successfully');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _log('Token refresh failed: $e', isError: true);
+      return false;
+    }
+  }
 }
 
 class AuthApi {
+  /// Login and receive JWT tokens
+  static Future<Map<String, dynamic>> login(String identifier, String password) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+
+    // Only clean if it looks like a phone number (all digits/dashes/pluses)
+    // If it contains @, it's an email, don't clean.
+    String cleanIdentifier = identifier.trim();
+    if (!cleanIdentifier.contains('@')) {
+      cleanIdentifier = cleanIdentifier.replaceAll(RegExp(r'\D'), '');
+    }
+
+    final response = await ApiClient.fetchFromBackend(
+      '$baseUrl/api/auth/login?phoneNumber=${Uri.encodeComponent(cleanIdentifier)}&password=${Uri.encodeComponent(password)}',
+      null,
+      null,
+      'GET',
+    );
+
+    // Store tokens securely
+    if (response['accessToken'] != null) {
+      await SecureStorage.saveTokens(
+        accessToken: response['accessToken'],
+        refreshToken: response['refreshToken'] ?? '',
+        userId: response['user']?['uid'] ?? '',
+      );
+    }
+
+    return response;
+  }
+
+  /// Register a new user and receive JWT tokens
   static Future<Map<String, dynamic>> signup({
     required String email,
     required String password,
@@ -84,43 +180,47 @@ class AuthApi {
     final baseUrl = await ApiClient.getBaseUrl();
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
 
-    return await ApiClient.fetchFromBackend(
-      '$baseUrl/api/auth/signup',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+    final response = await ApiClient.fetchFromBackend(
+      '$baseUrl/api/auth/public/signup',
+      null,
       json.encode({
         'email': email,
         'password': password,
         'firstName': firstName,
         'lastName': lastName,
-        'phoneNumber': cleanPhone, // Send as string
+        'phoneNumber': cleanPhone,
         'role': role,
       }),
       'POST',
     );
-  }
 
-  static Future<Map<String, dynamic>> login(String identifier, String password) async {
-    final baseUrl = await ApiClient.getBaseUrl();
-    
-    // Only clean if it looks like a phone number (all digits/dashes/pluses)
-    // If it contains @, it's an email, don't clean.
-    String cleanIdentifier = identifier.trim();
-    if (!cleanIdentifier.contains('@')) {
-      cleanIdentifier = cleanIdentifier.replaceAll(RegExp(r'\D'), '');
+    // Store tokens securely
+    if (response['accessToken'] != null) {
+      await SecureStorage.saveTokens(
+        accessToken: response['accessToken'],
+        refreshToken: response['refreshToken'] ?? '',
+        userId: response['user']?['uid'] ?? '',
+      );
     }
 
+    return response;
+  }
+
+  /// Get current user profile (requires auth)
+  static Future<Map<String, dynamic>> getMe() async {
+    final baseUrl = await ApiClient.getBaseUrl();
     return await ApiClient.fetchFromBackend(
-      '$baseUrl/api/auth/login?phoneNumber=${Uri.encodeComponent(cleanIdentifier)}&password=${Uri.encodeComponent(password)}',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      '$baseUrl/api/auth/me',
+      null,
       null,
       'GET',
+      requiresAuth: true,
     );
+  }
+
+  /// Logout - clear tokens
+  static Future<void> logout() async {
+    await SecureStorage.clearAll();
   }
 
   static Future<Map<String, dynamic>> forgotPassword({
@@ -129,13 +229,10 @@ class AuthApi {
     required String confirmPassword,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
-    
+
     return await ApiClient.fetchFromBackend(
       '$baseUrl/api/mailsender/forgotPassword',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      null,
       json.encode({
         'email': email,
         'newPassword': newPassword,
@@ -150,13 +247,10 @@ class AuthApi {
     required String password,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
-    
+
     return await ApiClient.fetchFromBackend(
       '$baseUrl/api/mailsender/resetPassword',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      null,
       json.encode({
         'email': email,
         'password': password,
@@ -172,12 +266,10 @@ class GameApi {
     try {
       return await ApiClient.fetchFromBackend(
         '$baseUrl/api/game/searchPlayers',
-        {
-          'Content-Type': 'application/json',
-          'Authorization': 'dice_game_secret_key',
-        },
+        null,
         null,
         'GET',
+        requiresAuth: true,
       );
     } catch (e) {
       ApiClient._log('Live Users API Error: $e');
@@ -185,18 +277,16 @@ class GameApi {
     }
   }
 
-  static Future<List<dynamic>> rollDice(List<Map<String, String>> players) async {
+  static Future<List<dynamic>> rollDice(List<Map<String, dynamic>> players) async {
     final baseUrl = await ApiClient.getBaseUrl();
     final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/game/rollDice',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      null,
       json.encode(players),
       'POST',
+      requiresAuth: true,
     );
-    
+
     if (response['data'] != null) {
       return response['data'] as List<dynamic>;
     }
@@ -212,13 +302,10 @@ class AdminApi {
     bool vip = false,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
-    
+
     return await ApiClient.fetchFromBackend(
       '$baseUrl/api/admin/deposit',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      null,
       json.encode({
         'uid': uid,
         'displayName': displayName,
@@ -226,6 +313,7 @@ class AdminApi {
         'amount': amount,
       }),
       'POST',
+      requiresAuth: true,
     );
   }
 
@@ -234,14 +322,12 @@ class AdminApi {
     try {
       final response = await ApiClient.fetchFromBackend(
         '$baseUrl/api/admin/depositHistory',
-        {
-          'Content-Type': 'application/json',
-          'Authorization': 'dice_game_secret_key',
-        },
+        null,
         null,
         'GET',
+        requiresAuth: true,
       );
-      
+
       if (response['data'] != null) {
         return response['data'] as List<dynamic>;
       }
@@ -257,12 +343,10 @@ class AdminApi {
     try {
       return await ApiClient.fetchFromBackend(
         '$baseUrl/api/admin/profitability?commission=$commission',
-        {
-          'Content-Type': 'application/json',
-          'Authorization': 'dice_game_secret_key',
-        },
+        null,
         null,
         'GET',
+        requiresAuth: true,
       );
     } catch (e) {
       ApiClient._log('Profitability API failed: $e');
@@ -283,13 +367,10 @@ class AdminApi {
     required String method,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
-    
+
     return await ApiClient.fetchFromBackend(
       '$baseUrl/api/admin/withdraw/request',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'dice_game_secret_key',
-      },
+      null,
       json.encode({
         'uid': uid,
         'displayName': displayName,
@@ -298,6 +379,7 @@ class AdminApi {
         'method': method,
       }),
       'POST',
+      requiresAuth: true,
     );
   }
 
@@ -306,14 +388,12 @@ class AdminApi {
     try {
       final response = await ApiClient.fetchFromBackend(
         '$baseUrl/api/admin/withdrawHistory',
-        {
-          'Content-Type': 'application/json',
-          'Authorization': 'dice_game_secret_key',
-        },
+        null,
         null,
         'GET',
+        requiresAuth: true,
       );
-      
+
       return response as List<dynamic>;
     } catch (e) {
       ApiClient._log('Withdrawal History API failed: $e');

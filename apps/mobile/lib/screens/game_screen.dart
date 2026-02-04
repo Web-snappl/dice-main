@@ -7,6 +7,7 @@ import '../widgets/dice_widget.dart';
 import '../widgets/app_button.dart';
 import '../utils/audio.dart';
 import '../utils/app_theme.dart';
+import '../utils/api.dart';
 
 class GameScreen extends StatefulWidget {
   final User user;
@@ -125,7 +126,7 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
 
-    // Rolling animation - Optimized for better performance
+    // Rolling animation - Optimized for better performance (client-side for animation only)
     AudioManager().play(SoundType.roll);
     final random = Random();
     for (int i = 0; i < 10; i++) {
@@ -141,11 +142,40 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
 
-    // Final results
-    _myDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
-    _leftDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
-    if (widget.playerCount >= 3) {
-      _rightDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
+    // Get authoritative results from backend API
+    try {
+      final players = <Map<String, String>>[
+        {'uid': widget.user.id, 'name': widget.user.name, 'role': 'player'},
+        {'uid': 'opponent_1', 'name': 'Opponent 1', 'role': 'opponent'},
+      ];
+      if (widget.playerCount >= 3) {
+        players.add({'uid': 'opponent_2', 'name': 'Opponent 2', 'role': 'opponent'});
+      }
+
+      final results = await GameApi.rollDice(players);
+      
+      // Parse backend results
+      for (final result in results) {
+        final uid = result['uid'];
+        final dice1 = result['dice1'] ?? 1;
+        final dice2 = result['dice2'] ?? 1;
+        
+        if (uid == widget.user.id) {
+          _myDice = [dice1, dice2];
+        } else if (uid == 'opponent_1') {
+          _leftDice = [dice1, dice2];
+        } else if (uid == 'opponent_2') {
+          _rightDice = [dice1, dice2];
+        }
+      }
+    } catch (e) {
+      // Fallback to client-side if backend fails (graceful degradation)
+      debugPrint('Backend rollDice failed: $e, using client-side fallback');
+      _myDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
+      _leftDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
+      if (widget.playerCount >= 3) {
+        _rightDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
+      }
     }
 
     _calculateResults();

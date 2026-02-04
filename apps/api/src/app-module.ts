@@ -10,6 +10,7 @@ import { WebsocketModule } from './modules/nestSockets/websocket.module';
 import { GameModule } from './modules/game/game.module';
 import { DepositsModule } from './modules/deposits/deposits.module';
 import { AdminModule } from './admin/admin.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { AdminModule } from './admin/admin.module';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'client', 'dist'),
-      exclude: ['/api*'],
+      exclude: ['/api{/*path}'],
       renderPath: '/',
     }),
     MongooseModule.forRootAsync({
@@ -40,6 +41,7 @@ import { AdminModule } from './admin/admin.module';
     GameModule,
     DepositsModule,
     AdminModule, // Admin Panel Module
+    StripeModule,
   ],
 
 })

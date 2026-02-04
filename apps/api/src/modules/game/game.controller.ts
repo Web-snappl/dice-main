@@ -12,8 +12,8 @@ export class GameController {
     }
 
     @Post('rollDice')
-    signup(@Body(ValidationPipe) userList: UserList): UserList {
-        return this.gameService.rollDice(userList);
+    async signup(@Body(ValidationPipe) userList: UserList): Promise<UserList> {
+        return await this.gameService.rollDice(userList);
     }
 
     @Post('/preGuess/rollDice')

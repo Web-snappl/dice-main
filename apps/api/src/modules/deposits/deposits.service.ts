@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Deposit } from '../../common/deposits.mongoSchema';
+import { User } from '../auth/auth.mongoSchema';
 import { GameHistoryModel } from '../../common/gameHistory.mongoSchema';
 import { CreateDepositDto, DepositResponse } from './deposits.dto';
 import { BadRequestException } from '@nestjs/common';
@@ -12,6 +13,7 @@ export class DepositsService {
     constructor(
         @InjectModel(Deposit.name) private readonly depositModel: Model<Deposit>,
         @InjectModel(GameHistoryModel.name) private readonly gameHistoryModel: Model<GameHistoryModel>,
+        @InjectModel('users') private readonly userModel: Model<User>,
     ) { }
 
     async deposit(depositDto: CreateDepositDto): Promise<DepositResponse> {
@@ -44,6 +46,12 @@ export class DepositsService {
 
         const savedDeposit = await newDeposit.save();
         const depositId = savedDeposit._id.toString();
+
+        // Update user balance
+        await this.userModel.findOneAndUpdate(
+            { uid: uid },
+            { $inc: { balance: numericAmount } }
+        );
 
         return {
             status: 201,

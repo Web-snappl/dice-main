@@ -7,8 +7,14 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Enhanced CORS configuration
+  // Enhanced CORS configuration
   app.enableCors({
-    origin: true, // Allow all origins (reflects request origin)
+    origin: [
+      'https://dice-worldweb.netlify.app',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     credentials: true,

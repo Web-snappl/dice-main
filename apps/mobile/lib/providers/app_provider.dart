@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/types.dart';
 import '../utils/api.dart';
+import '../utils/secure_storage.dart';
 
 class AppProvider extends ChangeNotifier {
   Screen _currentScreen = Screen.login;
@@ -52,11 +53,39 @@ class AppProvider extends ChangeNotifier {
         final List<dynamic> decoded = json.decode(transactionsJson);
         _transactions = decoded.map((item) => Transaction.fromJson(item)).toList();
       }
+
+      // Check for existing session via secure storage
+      await _tryRestoreSession();
     } catch (e) {
       debugPrint('Error loading persisted data: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Attempt to restore session from secure storage tokens
+  Future<void> _tryRestoreSession() async {
+    try {
+      final hasTokens = await SecureStorage.hasTokens();
+      if (!hasTokens) return;
+
+      debugPrint('🔑 Found stored tokens, attempting session restore...');
+      
+      // Try to get current user from API with stored token
+      final userData = await AuthApi.getMe();
+      if (userData != null) {
+        final user = _mapApiUserToState(userData);
+        _currentUser = user;
+        _isAuthenticated = true;
+        _isAdmin = user.role == UserRole.admin;
+        _currentScreen = _isAdmin ? Screen.admin : Screen.home;
+        debugPrint('✅ Session restored for: ${user.name}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Session restore failed: $e');
+      // Clear invalid tokens
+      await SecureStorage.clearAll();
     }
   }
 
@@ -174,7 +203,6 @@ class AppProvider extends ChangeNotifier {
               name: user.name,
               email: user.email,
               phone: user.phone,
-              password: user.password,
               wallet: localUser.wallet,
               avatarUrl: user.avatarUrl,
               role: user.role,
@@ -207,32 +235,10 @@ class AppProvider extends ChangeNotifier {
         }
       }
 
-      // Local login fallback
-      debugPrint('🔍 Searching local users...');
-      debugPrint('📋 Registered users count: ${_registeredUsers.length}');
-      
-      final localUser = _registeredUsers.firstWhere(
-        (u) => (u.name == identifier || u.email == identifier || u.phone == identifier) &&
-               (u.password == password),
-      );
-
-      debugPrint('👤 Local user found: ${localUser.name}');
-      
-      if (localUser.isBlocked == true) {
-        throw Exception('Account is blocked.');
-      }
-
-      setCurrentUser(localUser);
-      _isAuthenticated = true;
-      _isAdmin = localUser.role == UserRole.admin;
-      
-      debugPrint('🎯 Setting screen to: ${_isAdmin ? "ADMIN" : "HOME"}');
-      debugPrint('📊 Current user after set: ${_currentUser?.name ?? "NULL"}');
-      
-      setScreen(_isAdmin ? Screen.admin : Screen.home);
-      
-      debugPrint('✅ LOCAL LOGIN SUCCESSFUL!');
-      return true;
+      // Local login fallback is disabled - passwords are no longer stored locally
+      // This can only happen if API login failed for non-auth reasons
+      debugPrint('⚠️ API login failed and local fallback disabled (no password storage)');
+      throw Exception('Login failed. Please check your connection and try again.');
     } catch (e) {
       debugPrint('❌ LOGIN ERROR: $e');
       rethrow;
@@ -298,7 +304,6 @@ class AppProvider extends ChangeNotifier {
       name: apiData['displayName'] ?? apiData['name'] ?? 'Unknown User',
       email: apiData['email'] ?? '',
       phone: apiData['phone'] ?? apiData['phoneNumber'],
-      password: apiData['password'],
       wallet: apiData['wallet'] != null
           ? UserWallet.fromJson(apiData['wallet'])
           : UserWallet(
@@ -364,7 +369,9 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
+    // Clear tokens from secure storage
+    await AuthApi.logout();
     _isAuthenticated = false;
     _isAdmin = false;
     _currentUser = null;

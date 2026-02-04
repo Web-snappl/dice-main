@@ -137,48 +137,26 @@ class _AppButtonState extends State<AppButton> {
   }
 
   LinearGradient? _getGradient() {
-    if (widget.disabled) return null;
-    
-    switch (widget.variant) {
-      case ButtonVariant.primary:
-        return LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        );
-      case ButtonVariant.secondary:
-        return LinearGradient(
-          colors: [AppColors.accent, AppColors.accentDark],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        );
-      case ButtonVariant.gold:
-        return const LinearGradient(
-          colors: [Color(0xFFFBBF24), AppColors.gold],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        );
-      case ButtonVariant.danger:
-        return LinearGradient(
-          colors: [AppColors.danger, AppColors.danger.withValues(alpha: 0.8)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        );
-      default:
-        return null;
-    }
+    // No gradients - solid colors only
+    return null;
   }
 
   Color? _getBackgroundColor() {
     if (widget.disabled) return AppColors.panelLight;
     
     switch (widget.variant) {
+      case ButtonVariant.primary:
+        return AppColors.primary;
+      case ButtonVariant.secondary:
+        return AppColors.accent;
+      case ButtonVariant.gold:
+        return const Color(0xFFFBBF24);
+      case ButtonVariant.danger:
+        return AppColors.danger;
       case ButtonVariant.outline:
         return _isHovered ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent;
       case ButtonVariant.ghost:
         return _isHovered ? AppColors.panelLight : Colors.transparent;
-      default:
-        return null; // Using gradient
     }
   }
 

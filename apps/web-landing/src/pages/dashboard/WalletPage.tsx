@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import PaymentModal from '@/components/PaymentModal';
 import {
     Plus,
     ArrowUpRight,
@@ -65,52 +66,19 @@ export default function WalletPage() {
                 </Card>
 
                 {/* Quick Actions */}
-                <Card className="col-span-1 border-dashed flex flex-col justify-center items-center p-6 bg-neutral-50 dark:bg-neutral-900/50">
-                    <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="lg" className="w-full h-full min-h-[100px] flex flex-col gap-2 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-200 shadow-sm dark:bg-neutral-800 dark:text-neutral-50 dark:border-neutral-700">
-                                <div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                                    <Plus className="h-6 w-6" />
-                                </div>
-                                <span className="font-semibold">Deposit Funds</span>
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>Add Funds</DialogTitle>
-                                <DialogDescription>
-                                    Enter the amount you wish to deposit to your wallet.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="amount">Amount ($)</Label>
-                                    <Input
-                                        id="amount"
-                                        type="number"
-                                        placeholder="25.00"
-                                        value={amount}
-                                        onChange={(e) => setAmount(e.target.value)}
-                                        className="dark:focus:ring-red-500"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Payment Method</Label>
-                                    <div className="flex gap-2">
-                                        <Button variant="outline" className="flex-1 border-red-600 bg-red-50 text-red-700 hover:bg-red-100">
-                                            <CreditCard className="mr-2 h-4 w-4" /> Card
-                                        </Button>
-                                        <Button variant="outline" className="flex-1" disabled>
-                                            PayPal
-                                        </Button>
-                                    </div>
-                                </div>
+                <Card className="col-span-1 border-dashed flex flex-col justify-center items-center p-6 bg-neutral-50 dark:bg-neutral-900/50 space-y-4">
+                    <PaymentModal>
+                        <Button size="lg" className="w-full min-h-[80px] flex flex-col gap-2 bg-white hover:bg-neutral-100 text-neutral-900 border border-neutral-200 shadow-sm dark:bg-neutral-800 dark:text-neutral-50 dark:border-neutral-700">
+                            <div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                                <Plus className="h-6 w-6" />
                             </div>
-                            <DialogFooter>
-                                <Button onClick={handleDeposit}>Confim Payment</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                            <span className="font-semibold">Deposit Funds</span>
+                        </Button>
+                    </PaymentModal>
+
+                    <Button variant="outline" size="lg" className="w-full min-h-[60px] flex flex-col gap-1 border-dashed" onClick={() => toast.info('Withdrawal integration coming soon')}>
+                        <span className="font-semibold text-neutral-500">Withdraw Funds</span>
+                    </Button>
                 </Card>
             </div>
 

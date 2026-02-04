@@ -4,12 +4,14 @@ import { GameService } from './game.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LiveUser, LiveUserSchema } from './liveUser.mongoSchema';
 import { gameHistory, GameHistoryModel } from 'src/common/gameHistory.mongoSchema';
+import { users } from '../auth/auth.mongoSchema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: LiveUser.name, schema: LiveUserSchema },
       { name: GameHistoryModel.name, schema: gameHistory },
+      { name: 'users', schema: users },
     ])
   ],
   controllers: [GameController],

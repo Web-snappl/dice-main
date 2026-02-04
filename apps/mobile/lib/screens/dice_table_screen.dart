@@ -134,7 +134,11 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
     if (widget.isOnline && !_localFallback && _bets.keys.length < 6) {
       try {
         final playersPayload = [
-          {'uid': widget.user.id, 'displayName': widget.user.name},
+          {
+            'uid': widget.user.id, 
+            'displayName': widget.user.name,
+            'betAmount': _totalBet
+          },
           {'uid': 'dealer-bot', 'displayName': 'Dealer'},
         ];
         final apiResponse = await GameApi.rollDice(playersPayload);
@@ -354,7 +358,9 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                   child: DiceWidget(
                                     value: _diceValue,
                                     isRolling: _gameState == 'ROLLING',
-                                    color: DiceColor.white, // Changed to white for better contrast
+                                    color: _gameState == 'RESULT' && _resultMessage?['type'] == 'WIN'
+                                        ? DiceColor.gold
+                                        : DiceColor.primary,
                                     size: DiceSize.md,
                                   ),
                                 ),
