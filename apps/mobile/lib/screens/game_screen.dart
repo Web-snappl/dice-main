@@ -144,12 +144,12 @@ class _GameScreenState extends State<GameScreen> {
 
     // Get authoritative results from backend API
     try {
-      final players = <Map<String, String>>[
-        {'uid': widget.user.id, 'name': widget.user.name, 'role': 'player'},
-        {'uid': 'opponent_1', 'name': 'Opponent 1', 'role': 'opponent'},
+      final players = <Map<String, dynamic>>[
+        {'uid': widget.user.id, 'displayName': widget.user.name, 'role': 'player', 'betAmount': widget.betAmount * activeDuels},
+        {'uid': 'opponent_1', 'displayName': 'Opponent 1', 'role': 'opponent', 'betAmount': widget.betAmount},
       ];
       if (widget.playerCount >= 3) {
-        players.add({'uid': 'opponent_2', 'name': 'Opponent 2', 'role': 'opponent'});
+        players.add({'uid': 'opponent_2', 'displayName': 'Opponent 2', 'role': 'opponent', 'betAmount': widget.betAmount});
       }
 
       final results = await GameApi.rollDice(players);

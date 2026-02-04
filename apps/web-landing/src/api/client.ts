@@ -73,5 +73,8 @@ export const authApi = {
             phoneNumber: isEmail ? undefined : emailOrPhone,
             password
         });
+    },
+    async getUser(uid: string): Promise<User> {
+        return apiClient.getUser(uid);
     }
 };

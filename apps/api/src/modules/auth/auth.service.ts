@@ -180,7 +180,7 @@ export class AuthService {
         const hashedPassword = await this.hashPassword(password);
 
         const newUser = new this.userModel({
-            email: email,
+            email: email?.toLowerCase(),
             password: hashedPassword,
             firstName: firstName,
             lastName: lastName,
@@ -199,7 +199,7 @@ export class AuthService {
         if (phoneNumber) {
             query.phoneNumber = phoneNumber;
         } else if (email) {
-            query.email = email;
+            query.email = email.toLowerCase();
         } else {
             throw new BadRequestException('Please provide email or phone number');
         }

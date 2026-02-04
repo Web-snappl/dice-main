@@ -11,7 +11,7 @@ import WhatsAppButton from '@/components/ui/WhatsAppButton';
 
 // Replace these with your actual app store URLs
 const APP_STORE_URL = 'https://apps.apple.com/app/dice-world';
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.diceworld';
+const PLAY_STORE_URL = 'https://github.com/Web-snappl/dice-main/releases/download/v1.0.1/DiceWorld-v1.0.1.apk';
 
 // Replace with your actual WhatsApp phone number (include country code, e.g., "48123456789")
 const WHATSAPP_PHONE_NUMBER = '';

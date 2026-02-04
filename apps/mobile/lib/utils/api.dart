@@ -142,15 +142,27 @@ class AuthApi {
   static Future<Map<String, dynamic>> login(String identifier, String password) async {
     final baseUrl = await ApiClient.getBaseUrl();
 
-    // Only clean if it looks like a phone number (all digits/dashes/pluses)
-    // If it contains @, it's an email, don't clean.
+    // Detect if it's an email or phone number
     String cleanIdentifier = identifier.trim();
-    if (!cleanIdentifier.contains('@')) {
+    bool isEmail = cleanIdentifier.contains('@');
+    
+    String queryParam;
+    if (isEmail) {
+      // It's an email - send as email parameter
+      // FORCE LOWERCASE: Key fix for mobile keyboard auto-capitalization
+      cleanIdentifier = cleanIdentifier.toLowerCase();
+      queryParam = 'email=${Uri.encodeComponent(cleanIdentifier)}';
+    } else {
+      // It's a phone number - clean and send as phoneNumber parameter
       cleanIdentifier = cleanIdentifier.replaceAll(RegExp(r'\D'), '');
+      queryParam = 'phoneNumber=${Uri.encodeComponent(cleanIdentifier)}';
     }
 
+    // FORCE LOWERCASE: Ensure case-insensitivity on login
+    // String queryParam logic handles this above
+
     final response = await ApiClient.fetchFromBackend(
-      '$baseUrl/api/auth/login?phoneNumber=${Uri.encodeComponent(cleanIdentifier)}&password=${Uri.encodeComponent(password)}',
+      '$baseUrl/api/auth/login?$queryParam&password=${Uri.encodeComponent(password)}',
       null,
       null,
       'GET',
@@ -184,7 +196,7 @@ class AuthApi {
       '$baseUrl/api/auth/public/signup',
       null,
       json.encode({
-        'email': email,
+        'email': email.trim().toLowerCase(), // FORCE LOWERCASE: Ensure consistency with web
         'password': password,
         'firstName': firstName,
         'lastName': lastName,

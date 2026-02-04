@@ -141,32 +141,54 @@ export class GameService {
     }
 
     async processGameTransactions(userList: UserList) {
-        // Find winner (assuming one winner for now based on logic)
-        const winner = userList.find(u => u.winner);
+        // Calculate total pot from all bets
+        const totalPot = userList.reduce((sum, u) => sum + (u.betAmount || 0), 0);
+        const commissionRate = 0.05; // 5% commission
+        const winnerPayout = totalPot * (1 - commissionRate);
+
+        console.log(`[GameService] Total Pot: ${totalPot}, Commission: ${totalPot * commissionRate}, Winner Payout: ${winnerPayout}`);
 
         for (const user of userList) {
-            // Skip bots or users without UIDs (if any) or existing logic
-            if (user.uid === 'dealer-bot' || !user.betAmount || user.betAmount <= 0) continue;
-
-            const isWinner = user.winner === true;
-            let balanceChange = -user.betAmount; // Deduct bet
-
-            if (isWinner) {
-                // If winner, they get their bet back + winnings
-                // Assuming 5x multiplier for now to match mobile client visual logic generally
-                // But safer to just deduct bet if we can't be sure of win amount.
-                // However, user will LOSE money if we don't credit back.
-                // Since this is "Unify Game Funding", users just want to use their balance.
-                // We will add 5x win amount.
-                balanceChange += (user.betAmount * 5);
+            // Skip bot opponents (non-MongoDB IDs)
+            const isBot = !user.uid || user.uid.startsWith('opponent_') || user.uid === 'dealer-bot';
+            if (isBot) {
+                console.log(`[GameService] Skipping bot user: ${user.uid}`);
+                continue;
             }
 
-            console.log(`Processing transaction for ${user.uid}: ${balanceChange}`);
+            // Skip if no valid bet
+            if (!user.betAmount || user.betAmount <= 0) {
+                console.log(`[GameService] Skipping user ${user.uid}: no betAmount`);
+                continue;
+            }
 
-            await this.persistentUserModel.findOneAndUpdate(
-                { uid: user.uid },
-                { $inc: { balance: balanceChange } }
-            );
+            const isWinner = user.winner === true;
+            let balanceChange: number;
+
+            if (isWinner) {
+                // Winner gets the pot minus commission, minus their original bet (net gain)
+                balanceChange = winnerPayout - user.betAmount;
+                console.log(`[GameService] Winner ${user.uid}: bet ${user.betAmount}, payout ${winnerPayout}, net change: ${balanceChange}`);
+            } else {
+                // Loser loses their bet
+                balanceChange = -user.betAmount;
+                console.log(`[GameService] Loser ${user.uid}: lost bet ${user.betAmount}`);
+            }
+
+            try {
+                const result = await this.persistentUserModel.findByIdAndUpdate(
+                    user.uid,
+                    { $inc: { balance: balanceChange } },
+                    { new: true }
+                );
+                if (result) {
+                    console.log(`[GameService] Updated ${user.uid} balance by ${balanceChange}. New balance: ${result.balance}`);
+                } else {
+                    console.log(`[GameService] User ${user.uid} not found in DB`);
+                }
+            } catch (error) {
+                console.error(`[GameService] Failed to update balance for ${user.uid}:`, error);
+            }
         }
     }
 }

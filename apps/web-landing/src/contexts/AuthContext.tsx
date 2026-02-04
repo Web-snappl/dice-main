@@ -9,6 +9,7 @@ interface AuthContextType {
     login: (emailOrPhone: string, password: string) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -53,8 +54,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.info('Logged out');
     };
 
+    const refreshUser = async () => {
+        if (!user?.uid) return;
+        try {
+            const freshUser = await authApi.getUser(user.uid);
+            setUser(freshUser);
+            localStorage.setItem('user', JSON.stringify(freshUser));
+        } catch (error) {
+            console.error('Failed to refresh user data', error);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, isLoading, login, logout, isAuthenticated: !!user, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

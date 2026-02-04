@@ -42,26 +42,37 @@ const Header = () => {
           </a>
         </nav>
 
-        {/* Language Switcher */}
-        <div className="flex items-center gap-1 bg-secondary rounded-full p-1">
-          <button
-            onClick={() => setLanguage('en')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${language === 'en'
+        {/* Right Side Actions */}
+        <div className="flex items-center gap-4">
+          {/* Mobile Login Link */}
+          <a
+            href="/login"
+            className="md:hidden text-sm font-medium text-foreground hover:text-primary transition-colors"
+          >
+            Login
+          </a>
+
+          {/* Language Switcher */}
+          <div className="flex items-center gap-1 bg-secondary rounded-full p-1">
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${language === 'en'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLanguage('fr')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${language === 'fr'
+                }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLanguage('fr')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${language === 'fr'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            FR
-          </button>
+                }`}
+            >
+              FR
+            </button>
+          </div>
         </div>
       </div>
     </header>
