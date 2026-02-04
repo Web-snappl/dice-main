@@ -187,6 +187,22 @@ class ApiClient {
         return response.data;
     }
 
+    // Game Configs (real backend)
+    async getGameConfigs() {
+        const response = await this.client.get('/game/configs');
+        return response.data;
+    }
+
+    async updateGameConfig(gameId: string, data: Record<string, unknown>) {
+        const response = await this.client.patch(`/game/config/${gameId}`, data);
+        return response.data;
+    }
+
+    async seedGameConfigs() {
+        const response = await this.client.post('/game/config/seed');
+        return response.data;
+    }
+
     // Scores
     async getScores(params?: Record<string, unknown>) {
         const response = await this.client.get('/admin/scores', { params });

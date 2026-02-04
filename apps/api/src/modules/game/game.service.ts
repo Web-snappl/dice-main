@@ -9,6 +9,7 @@ import { GuessGameUserList, UserList, UserResponse } from './createUser.dto';
 import { getRandomInt } from 'src/common/random'
 import * as _ from "lodash";
 import { GameHistoryModel } from 'src/common/gameHistory.mongoSchema';
+import { GameConfig, GameConfigDocument } from './game-config.mongoSchema';
 
 @Injectable()
 export class GameService {
@@ -16,7 +17,7 @@ export class GameService {
         @InjectModel(LiveUser.name) private readonly userModel: Model<LiveUser>,
         @InjectModel('users') private readonly persistentUserModel: Model<User>,
         @InjectModel(GameHistoryModel.name) private readonly gameHistoryModel: Model<GameHistoryModel>,
-
+        @InjectModel(GameConfig.name) private readonly gameConfigModel: Model<GameConfigDocument>,
     ) { }
 
     async queryLiveUsers(): Promise<UserResponse> {
@@ -190,5 +191,80 @@ export class GameService {
                 console.error(`[GameService] Failed to update balance for ${user.uid}:`, error);
             }
         }
+    }
+
+    // Game Configuration Methods
+    async getGameConfigs() {
+        const configs = await this.gameConfigModel.find().exec();
+        return { games: configs };
+    }
+
+    async getGameConfig(gameId: string) {
+        const config = await this.gameConfigModel.findOne({ gameId }).exec();
+        if (!config) {
+            throw new BadRequestException(`Game config not found: ${gameId}`);
+        }
+        return config;
+    }
+
+    async updateGameConfig(gameId: string, data: Partial<GameConfig>) {
+        const config = await this.gameConfigModel.findOneAndUpdate(
+            { gameId },
+            { $set: data },
+            { new: true }
+        ).exec();
+        if (!config) {
+            throw new BadRequestException(`Game config not found: ${gameId}`);
+        }
+        console.log(`[GameService] Updated config for ${gameId}:`, data);
+        return config;
+    }
+
+    async seedDefaultConfigs() {
+        const defaultConfigs = [
+            {
+                gameId: 'dice_duel',
+                name: 'Dice Duel',
+                description: 'Classic 1vs1 or 1vs2 highest roll wins duel',
+                isActive: true,
+                commissionRate: 5,
+                minBet: 50,
+                maxBet: 10000,
+                minPlayers: 2,
+                maxPlayers: 3,
+                payoutMultiplier: 2,
+                dailyBetLimit: null,
+                maintenanceMode: false,
+                maintenanceMessage: '',
+                difficulty: 'medium',
+            },
+            {
+                gameId: 'dice_table',
+                name: 'Dice Table',
+                description: 'Multiplayer dice table game with multiple betting options',
+                isActive: true,
+                commissionRate: 5,
+                minBet: 100,
+                maxBet: 50000,
+                minPlayers: 2,
+                maxPlayers: 6,
+                payoutMultiplier: 2,
+                dailyBetLimit: null,
+                maintenanceMode: false,
+                maintenanceMessage: '',
+                difficulty: 'hard',
+            },
+        ];
+
+        for (const config of defaultConfigs) {
+            await this.gameConfigModel.findOneAndUpdate(
+                { gameId: config.gameId },
+                { $setOnInsert: config },
+                { upsert: true, new: true }
+            ).exec();
+        }
+
+        console.log('[GameService] Seeded default game configs');
+        return { message: 'Default configs seeded', count: defaultConfigs.length };
     }
 }

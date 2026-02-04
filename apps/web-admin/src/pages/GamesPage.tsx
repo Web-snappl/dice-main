@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Gamepad2, Power, Plus, Edit2 } from 'lucide-react';
+import { Gamepad2, Power, Settings, Percent, DollarSign, Users, RefreshCw, AlertTriangle, Save, Wrench } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 interface GameConfig {
     _id: string;
+    gameId: string;
     name: string;
     description?: string;
     isActive: boolean;
+    commissionRate: number;
+    minBet: number;
+    maxBet: number;
     minPlayers: number;
     maxPlayers: number;
+    payoutMultiplier: number;
+    dailyBetLimit: number | null;
+    maintenanceMode: boolean;
+    maintenanceMessage: string;
     difficulty: string;
-    mode?: string;
-    createdAt: string;
 }
 
 export function GamesPage() {
@@ -23,15 +29,10 @@ export function GamesPage() {
 
     const [games, setGames] = useState<GameConfig[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
     const [editingGame, setEditingGame] = useState<GameConfig | null>(null);
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        minPlayers: 2,
-        maxPlayers: 10,
-        difficulty: 'medium',
-    });
+    const [formData, setFormData] = useState<Partial<GameConfig>>({});
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
     useEffect(() => {
         document.getElementById('page-title')!.textContent = t('games.title');
@@ -41,67 +42,90 @@ export function GamesPage() {
     const loadGames = async () => {
         setIsLoading(true);
         try {
-            const response = await api.getGames();
-            setGames(response.games);
+            const response = await api.getGameConfigs();
+            if (response.games && response.games.length > 0) {
+                setGames(response.games);
+            } else {
+                // Seed default configs if none exist
+                await api.seedGameConfigs();
+                const seededResponse = await api.getGameConfigs();
+                setGames(seededResponse.games || []);
+            }
         } catch (error) {
             console.error('Failed to load games:', error);
+            // Try to seed on error
+            try {
+                await api.seedGameConfigs();
+                const seededResponse = await api.getGameConfigs();
+                setGames(seededResponse.games || []);
+            } catch (seedError) {
+                console.error('Failed to seed games:', seedError);
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleEdit = (game: GameConfig) => {
+        setEditingGame(game);
+        setFormData({ ...game });
+        setSaveSuccess(null);
+    };
+
+    const handleSave = async () => {
+        if (!editingGame) return;
+        setIsSaving(true);
+        try {
+            await api.updateGameConfig(editingGame.gameId, formData);
+            setSaveSuccess('Configuration saved successfully!');
+            loadGames();
+            setTimeout(() => setSaveSuccess(null), 3000);
+        } catch (error) {
+            console.error('Failed to save game config:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleToggleMaintenance = async (game: GameConfig) => {
+        try {
+            await api.updateGameConfig(game.gameId, {
+                maintenanceMode: !game.maintenanceMode
+            });
+            loadGames();
+        } catch (error) {
+            console.error('Failed to toggle maintenance:', error);
+        }
+    };
+
     const handleToggleActive = async (game: GameConfig) => {
         try {
-            if (game.isActive) {
-                await api.deactivateGame(game._id);
-            } else {
-                await api.activateGame(game._id);
-            }
+            await api.updateGameConfig(game.gameId, {
+                isActive: !game.isActive
+            });
             loadGames();
         } catch (error) {
-            console.error('Failed to toggle game:', error);
+            console.error('Failed to toggle active:', error);
         }
     };
 
-    const handleSubmit = async () => {
-        try {
-            if (editingGame) {
-                await api.updateGame(editingGame._id, formData);
-            } else {
-                await api.createGame(formData);
-            }
-            setShowModal(false);
-            setEditingGame(null);
-            setFormData({ name: '', description: '', minPlayers: 2, maxPlayers: 10, difficulty: 'medium' });
-            loadGames();
-        } catch (error) {
-            console.error('Failed to save game:', error);
-        }
-    };
-
-    const openEditModal = (game: GameConfig) => {
-        setEditingGame(game);
-        setFormData({
-            name: game.name,
-            description: game.description || '',
-            minPlayers: game.minPlayers,
-            maxPlayers: game.maxPlayers,
-            difficulty: game.difficulty,
-        });
-        setShowModal(true);
+    const getGameIcon = (gameId: string) => {
+        return gameId === 'dice_duel' ? '🎲' : '🎰';
     };
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            {isAdmin && (
-                <div className="flex justify-end">
-                    <button onClick={() => setShowModal(true)} className="btn-primary">
-                        <Plus className="w-5 h-5 mr-2" />
-                        {t('games.create')}
-                    </button>
-                </div>
-            )}
+            {/* Header with Seed Button */}
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white">Game Configuration</h2>
+                <button
+                    onClick={loadGames}
+                    className="btn-secondary flex items-center gap-2"
+                >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                </button>
+            </div>
 
             {/* Games Grid */}
             {isLoading ? (
@@ -111,69 +135,98 @@ export function GamesPage() {
             ) : games.length === 0 ? (
                 <div className="card flex flex-col items-center justify-center h-64 text-dark-400">
                     <Gamepad2 className="w-12 h-12 mb-4" />
-                    <p>{t('common.noData')}</p>
+                    <p>No games configured</p>
+                    <button onClick={loadGames} className="btn-primary mt-4">
+                        Load Default Games
+                    </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {games.map((game) => (
                         <div key={game._id} className="card relative overflow-hidden">
                             {/* Status indicator */}
-                            <div className={`absolute top-0 left-0 right-0 h-1 ${game.isActive ? 'bg-green-500' : 'bg-dark-600'}`} />
+                            <div className={`absolute top-0 left-0 right-0 h-1 ${game.maintenanceMode ? 'bg-yellow-500' :
+                                    game.isActive ? 'bg-green-500' : 'bg-red-500'
+                                }`} />
 
-                            <div className="flex items-start justify-between mt-2">
+                            {/* Header */}
+                            <div className="flex items-start justify-between mt-2 mb-4">
                                 <div className="flex items-center">
-                                    <div className={`p-3 rounded-xl ${game.isActive ? 'bg-primary-500/20' : 'bg-dark-600'} mr-4`}>
-                                        <Gamepad2 className={`w-6 h-6 ${game.isActive ? 'text-primary-400' : 'text-dark-400'}`} />
+                                    <div className={`text-4xl mr-4`}>
+                                        {getGameIcon(game.gameId)}
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-semibold text-white">{game.name}</h3>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${game.isActive
-                                            ? 'bg-green-500/20 text-green-400'
-                                            : 'bg-dark-600 text-dark-400'
-                                            }`}>
-                                            {game.isActive ? 'Active' : 'Inactive'}
-                                        </span>
+                                        <h3 className="text-xl font-bold text-white">{game.name}</h3>
+                                        <p className="text-dark-400 text-sm">{game.description}</p>
+                                        <div className="flex gap-2 mt-2">
+                                            <span className={`text-xs px-2 py-1 rounded-full ${game.isActive
+                                                    ? 'bg-green-500/20 text-green-400'
+                                                    : 'bg-red-500/20 text-red-400'
+                                                }`}>
+                                                {game.isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                            {game.maintenanceMode && (
+                                                <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-400">
+                                                    Maintenance
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {game.description && (
-                                <p className="text-dark-400 text-sm mt-4 line-clamp-2">{game.description}</p>
-                            )}
-
-                            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-dark-700">
-                                <div className="text-center">
-                                    <p className="text-dark-500 text-xs">{t('games.minPlayers')}</p>
-                                    <p className="text-white font-medium">{game.minPlayers}</p>
+                            {/* Stats Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                                    <Percent className="w-5 h-5 mx-auto mb-1 text-primary-400" />
+                                    <p className="text-2xl font-bold text-white">{game.commissionRate}%</p>
+                                    <p className="text-xs text-dark-400">Commission</p>
                                 </div>
-                                <div className="text-center">
-                                    <p className="text-dark-500 text-xs">{t('games.maxPlayers')}</p>
-                                    <p className="text-white font-medium">{game.maxPlayers}</p>
+                                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                                    <DollarSign className="w-5 h-5 mx-auto mb-1 text-yellow-400" />
+                                    <p className="text-lg font-bold text-white">{game.minBet} - {game.maxBet}</p>
+                                    <p className="text-xs text-dark-400">Bet Range</p>
                                 </div>
-                                <div className="text-center">
-                                    <p className="text-dark-500 text-xs">{t('games.difficulty')}</p>
-                                    <p className="text-white font-medium capitalize">{game.difficulty}</p>
+                                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                                    <Users className="w-5 h-5 mx-auto mb-1 text-blue-400" />
+                                    <p className="text-2xl font-bold text-white">{game.minPlayers}-{game.maxPlayers}</p>
+                                    <p className="text-xs text-dark-400">Players</p>
+                                </div>
+                                <div className="bg-dark-700 rounded-lg p-3 text-center">
+                                    <span className="text-xl block mb-1">🏆</span>
+                                    <p className="text-2xl font-bold text-white">{game.payoutMultiplier}x</p>
+                                    <p className="text-xs text-dark-400">Payout</p>
                                 </div>
                             </div>
 
+                            {/* Action Buttons */}
                             {isAdmin && (
-                                <div className="flex gap-2 mt-4 pt-4 border-t border-dark-700">
+                                <div className="flex gap-2 pt-4 border-t border-dark-700">
                                     <button
-                                        onClick={() => openEditModal(game)}
+                                        onClick={() => handleEdit(game)}
                                         className="btn-secondary flex-1 text-sm"
                                     >
-                                        <Edit2 className="w-4 h-4 mr-2" />
-                                        {t('users.edit')}
+                                        <Settings className="w-4 h-4 mr-2 inline" />
+                                        Configure
+                                    </button>
+                                    <button
+                                        onClick={() => handleToggleMaintenance(game)}
+                                        className={`flex-1 text-sm font-medium py-2 px-4 rounded-lg transition-colors ${game.maintenanceMode
+                                                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                                : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                                            }`}
+                                    >
+                                        <Wrench className="w-4 h-4 inline mr-2" />
+                                        {game.maintenanceMode ? 'End Maintenance' : 'Maintenance'}
                                     </button>
                                     <button
                                         onClick={() => handleToggleActive(game)}
-                                        className={`flex-1 text-sm font-medium py-2 px-4 rounded-lg transition-colors ${game.isActive
-                                            ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                        className={`px-4 py-2 rounded-lg transition-colors ${game.isActive
+                                                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                                : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                                             }`}
                                     >
-                                        <Power className="w-4 h-4 inline mr-2" />
-                                        {game.isActive ? t('games.deactivate') : t('games.activate')}
+                                        <Power className="w-4 h-4" />
                                     </button>
                                 </div>
                             )}
@@ -182,138 +235,166 @@ export function GamesPage() {
                 </div>
             )}
 
-            {/* Create/Edit Modal */}
-            {showModal && (
+            {/* Edit Modal */}
+            {editingGame && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-dark-800 rounded-xl border border-dark-700 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-                        <h3 className="text-xl font-bold text-white mb-6">
-                            {editingGame ? 'Edit Game' : t('games.create')}
+                    <div className="bg-dark-800 rounded-xl border border-dark-700 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                            <span className="text-3xl">{getGameIcon(editingGame.gameId)}</span>
+                            Configure {editingGame.name}
                         </h3>
 
+                        {saveSuccess && (
+                            <div className="bg-green-500/20 border border-green-500/30 text-green-400 px-4 py-2 rounded-lg mb-4">
+                                {saveSuccess}
+                            </div>
+                        )}
+
                         <div className="space-y-4">
+                            {/* Commission Rate */}
                             <div>
-                                <label className="block text-sm font-medium text-dark-300 mb-2">{t('games.name')}</label>
+                                <label className="block text-sm font-medium text-dark-300 mb-2 flex items-center gap-2">
+                                    <Percent className="w-4 h-4" /> Commission Rate (%)
+                                </label>
                                 <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    type="number"
+                                    value={formData.commissionRate ?? 5}
+                                    onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) })}
                                     className="input-field"
+                                    min={0}
+                                    max={50}
+                                    step={0.5}
                                 />
+                                <p className="text-xs text-dark-500 mt-1">Platform fee deducted from winnings</p>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-dark-300 mb-2">{t('games.description')}</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="input-field h-24 resize-none"
-                                />
-                            </div>
+
+                            {/* Bet Range */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-dark-300 mb-2">{t('games.minPlayers')}</label>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Min Bet</label>
                                     <input
                                         type="number"
-                                        value={formData.minPlayers}
-                                        onChange={(e) => setFormData({ ...formData, minPlayers: parseInt(e.target.value) })}
+                                        value={formData.minBet ?? 50}
+                                        onChange={(e) => setFormData({ ...formData, minBet: parseInt(e.target.value) })}
                                         className="input-field"
                                         min={1}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-dark-300 mb-2">{t('games.maxPlayers')}</label>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Max Bet</label>
                                     <input
                                         type="number"
-                                        value={formData.maxPlayers}
+                                        value={formData.maxBet ?? 10000}
+                                        onChange={(e) => setFormData({ ...formData, maxBet: parseInt(e.target.value) })}
+                                        className="input-field"
+                                        min={1}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Player Range */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Min Players</label>
+                                    <input
+                                        type="number"
+                                        value={formData.minPlayers ?? 2}
+                                        onChange={(e) => setFormData({ ...formData, minPlayers: parseInt(e.target.value) })}
+                                        className="input-field"
+                                        min={2}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-dark-300 mb-2">Max Players</label>
+                                    <input
+                                        type="number"
+                                        value={formData.maxPlayers ?? 6}
                                         onChange={(e) => setFormData({ ...formData, maxPlayers: parseInt(e.target.value) })}
                                         className="input-field"
                                         min={2}
                                     />
                                 </div>
                             </div>
+
+                            {/* Payout Multiplier */}
                             <div>
-                                <label className="block text-sm font-medium text-dark-300 mb-2">{t('games.difficulty')}</label>
-                                <select
-                                    value={formData.difficulty}
-                                    onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                                <label className="block text-sm font-medium text-dark-300 mb-2">Payout Multiplier</label>
+                                <input
+                                    type="number"
+                                    value={formData.payoutMultiplier ?? 2}
+                                    onChange={(e) => setFormData({ ...formData, payoutMultiplier: parseFloat(e.target.value) })}
                                     className="input-field"
-                                >
-                                    <option value="easy">Easy</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="hard">Hard</option>
-                                </select>
+                                    min={1}
+                                    max={10}
+                                    step={0.1}
+                                />
+                                <p className="text-xs text-dark-500 mt-1">Win amount = Bet × Multiplier × (1 - Commission)</p>
+                            </div>
+
+                            {/* Daily Bet Limit */}
+                            <div>
+                                <label className="block text-sm font-medium text-dark-300 mb-2">Daily Bet Limit (per user)</label>
+                                <input
+                                    type="number"
+                                    value={formData.dailyBetLimit ?? ''}
+                                    onChange={(e) => setFormData({ ...formData, dailyBetLimit: e.target.value ? parseInt(e.target.value) : null })}
+                                    className="input-field"
+                                    placeholder="No limit"
+                                    min={0}
+                                />
+                                <p className="text-xs text-dark-500 mt-1">Leave empty for unlimited</p>
+                            </div>
+
+                            {/* Maintenance Message */}
+                            <div>
+                                <label className="block text-sm font-medium text-dark-300 mb-2 flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-yellow-400" /> Maintenance Message
+                                </label>
+                                <textarea
+                                    value={formData.maintenanceMessage ?? ''}
+                                    onChange={(e) => setFormData({ ...formData, maintenanceMessage: e.target.value })}
+                                    className="input-field h-20 resize-none"
+                                    placeholder="Shown when game is in maintenance mode..."
+                                />
+                            </div>
+
+                            {/* Earnings Preview */}
+                            <div className="bg-dark-700 rounded-lg p-4 mt-4">
+                                <h4 className="text-sm font-medium text-dark-300 mb-2">Earnings Preview (100 bet)</h4>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-dark-400">Total Pot:</span>
+                                    <span className="text-white font-medium">200</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-dark-400">Platform Fee ({formData.commissionRate ?? 5}%):</span>
+                                    <span className="text-yellow-400 font-medium">{((200 * (formData.commissionRate ?? 5)) / 100).toFixed(0)}</span>
+                                </div>
+                                <div className="flex justify-between text-sm border-t border-dark-600 pt-2 mt-2">
+                                    <span className="text-dark-400">Winner Payout:</span>
+                                    <span className="text-green-400 font-medium">{(200 - (200 * (formData.commissionRate ?? 5)) / 100).toFixed(0)}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {editingGame && <GameIssuesList gameId={editingGame._id} />}
-
                         <div className="flex gap-3 justify-end mt-6">
                             <button
-                                onClick={() => { setShowModal(false); setEditingGame(null); }}
+                                onClick={() => setEditingGame(null)}
                                 className="btn-secondary"
                             >
-                                {t('common.cancel')}
+                                Cancel
                             </button>
-                            <button onClick={handleSubmit} className="btn-primary" disabled={!formData.name}>
-                                {t('common.save')}
+                            <button
+                                onClick={handleSave}
+                                className="btn-primary"
+                                disabled={isSaving}
+                            >
+                                <Save className="w-4 h-4 mr-2 inline" />
+                                {isSaving ? 'Saving...' : 'Save Changes'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
-    );
-}
-
-// Simple Issues Component
-function GameIssuesList({ gameId }: { gameId: string }) {
-    const [issues, setIssues] = useState<any[]>([]);
-    const [newIssue, setNewIssue] = useState({ title: '', description: '', severity: 'medium' });
-
-    useEffect(() => {
-        api.getGameIssues(gameId).then(setIssues);
-    }, [gameId]);
-
-    const handleAdd = async () => {
-        await api.createGameIssue(gameId, newIssue);
-        setNewIssue({ title: '', description: '', severity: 'medium' });
-        const updated = await api.getGameIssues(gameId);
-        setIssues(updated);
-    };
-
-    return (
-        <div className="mt-4 border-t border-dark-700 pt-4">
-            <h4 className="font-bold text-white mb-2">Reported Issues</h4>
-            <div className="space-y-2 mb-4">
-                {issues.map(issue => (
-                    <div key={issue._id} className="bg-dark-700 p-2 rounded text-sm flex justify-between">
-                        <div>
-                            <div className="font-bold text-white">{issue.title}</div>
-                            <div className="text-dark-400">{issue.description}</div>
-                        </div>
-                        <div className={`text-xs uppercase px-2 py-1 rounded self-start ${issue.status === 'open' ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'
-                            }`}>
-                            {issue.status}
-                        </div>
-                    </div>
-                ))}
-                {issues.length === 0 && <p className="text-dark-500 text-sm">No issues reported.</p>}
-            </div>
-
-            <div className="bg-dark-800 p-3 rounded">
-                <input
-                    className="input-field mb-2 text-sm"
-                    placeholder="Issue Title"
-                    value={newIssue.title}
-                    onChange={e => setNewIssue({ ...newIssue, title: e.target.value })}
-                />
-                <textarea
-                    className="input-field mb-2 text-sm h-16"
-                    placeholder="Description..."
-                    value={newIssue.description}
-                    onChange={e => setNewIssue({ ...newIssue, description: e.target.value })}
-                />
-                <button onClick={handleAdd} className="btn-primary w-full text-sm">Report Issue</button>
-            </div>
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, ValidationPipe, Patch, Param } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GuessGameUserList, UserList, UserResponse } from './createUser.dto';
 
@@ -21,4 +21,25 @@ export class GameController {
         return this.gameService.preGuessRollDice(userList)
     }
 
+    // Game Configuration Endpoints
+    @Get('configs')
+    async getGameConfigs() {
+        return this.gameService.getGameConfigs();
+    }
+
+    @Get('config/:gameId')
+    async getGameConfig(@Param('gameId') gameId: string) {
+        return this.gameService.getGameConfig(gameId);
+    }
+
+    @Patch('config/:gameId')
+    async updateGameConfig(@Param('gameId') gameId: string, @Body() data: any) {
+        return this.gameService.updateGameConfig(gameId, data);
+    }
+
+    @Post('config/seed')
+    async seedGameConfigs() {
+        return this.gameService.seedDefaultConfigs();
+    }
 }
+
