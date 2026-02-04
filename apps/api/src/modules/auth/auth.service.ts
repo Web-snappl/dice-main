@@ -8,6 +8,7 @@ import { UserResponse } from './createUser.dto';
 import { createHmac } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
+import { SignOptions } from 'jsonwebtoken';
 
 const SALT_ROUNDS = 12;
 
@@ -69,7 +70,7 @@ export class AuthService {
             phoneNumber: user.phoneNumber,
         };
 
-        return jwt.sign(payload, secret, { expiresIn });
+        return jwt.sign(payload, secret, { expiresIn: expiresIn as SignOptions['expiresIn'] });
     }
 
     private generateRefreshToken(user: User): string {
@@ -85,7 +86,7 @@ export class AuthService {
             phoneNumber: user.phoneNumber,
         };
 
-        return jwt.sign(payload, secret, { expiresIn });
+        return jwt.sign(payload, secret, { expiresIn: expiresIn as SignOptions['expiresIn'] });
     }
 
     private generateTokens(user: User): { accessToken: string; refreshToken: string } {

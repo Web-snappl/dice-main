@@ -3,7 +3,7 @@
 /// To switch between environments, change the [currentEnvironment] value.
 /// For production builds, ensure [currentEnvironment] is set to [Environment.production].
 class AppConfig {
-  static const Environment currentEnvironment = Environment.development;
+  static const Environment currentEnvironment = Environment.production;
   
   static String get apiBaseUrl {
     switch (currentEnvironment) {
