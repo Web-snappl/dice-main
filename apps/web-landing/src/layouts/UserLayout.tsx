@@ -29,7 +29,7 @@ export default function UserLayout() {
     ];
 
     const handleAndroidDownload = () => {
-        window.location.href = 'https://github.com/Web-snappl/dice-main/releases/download/v1.0.1/DiceWorld-v1.0.1.apk';
+        window.location.href = 'https://github.com/Web-snappl/dice-main/releases/download/v1.0.2/app-release.apk';
     };
 
     const handleIOSClick = () => {
