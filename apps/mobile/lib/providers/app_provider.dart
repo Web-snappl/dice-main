@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/types.dart';
@@ -22,6 +23,7 @@ class AppProvider extends ChangeNotifier {
   List<User> _registeredUsers = [];
   List<GameRecord> _history = [];
   List<Transaction> _transactions = [];
+  Timer? _balanceRefreshTimer;
 
   Screen get currentScreen => _currentScreen;
   bool get isAuthenticated => _isAuthenticated;
@@ -86,11 +88,30 @@ class AppProvider extends ChangeNotifier {
         _currentScreen = _isAdmin ? Screen.admin : Screen.home;
         debugPrint('✅ Session restored for: ${user.name}');
         debugPrint('💰 Balance from API: ${user.wallet.balance}');
+        _startBalanceRefreshTimer();
       }
     } catch (e) {
       debugPrint('⚠️ Session restore failed: $e');
       // Clear invalid tokens
       await SecureStorage.clearAll();
+    }
+  }
+
+  /// Refresh user balance from API - call this after transactions
+  Future<void> refreshBalance() async {
+    if (!_isAuthenticated || _currentUser == null) return;
+    
+    try {
+      debugPrint('🔄 Refreshing balance from API...');
+      final userData = await AuthApi.getMe();
+      if (userData != null) {
+        final user = _mapApiUserToState(userData);
+        _currentUser = user;
+        debugPrint('💰 Balance updated: ${user.wallet.balance}');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('⚠️ Balance refresh failed: $e');
     }
   }
 
@@ -236,6 +257,7 @@ class AppProvider extends ChangeNotifier {
             setScreen(_isAdmin ? Screen.admin : Screen.home);
             
             debugPrint('✅ LOGIN SUCCESSFUL!');
+            _startBalanceRefreshTimer();
             return true;
           }
         } catch (e) {
@@ -293,6 +315,7 @@ class AppProvider extends ChangeNotifier {
           _isAuthenticated = true;
           _isAdmin = user.role == UserRole.admin;
           setScreen(_isAdmin ? Screen.admin : Screen.home);
+          _startBalanceRefreshTimer();
           return true;
         }
       }
@@ -382,11 +405,34 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _stopBalanceRefreshTimer();
     // Clear tokens from secure storage
     await AuthApi.logout();
     _isAuthenticated = false;
     _isAdmin = false;
     _currentUser = null;
     setScreen(Screen.login);
+  }
+  
+  void _startBalanceRefreshTimer() {
+    _balanceRefreshTimer?.cancel();
+    _balanceRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_isAuthenticated && _isOnline) {
+        refreshBalance();
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _stopBalanceRefreshTimer() {
+    _balanceRefreshTimer?.cancel();
+    _balanceRefreshTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopBalanceRefreshTimer();
+    super.dispose();
   }
 }

@@ -3,6 +3,7 @@ import { SellerResponse } from './createSeller.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../auth/auth.mongoSchema';
+import { TransactionsService } from '../transactions/transactions.service';
 
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
@@ -13,6 +14,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder"
 export class StripeService {
     constructor(
         @InjectModel('users') private readonly userModel: Model<User>,
+        private readonly transactionsService: TransactionsService,
     ) { }
     async CreateSeller(uid: string, firstName: string, lastName: string, email: string, country: string): Promise<SellerResponse> {
         // check mongodb user collection for user.stripeAccountId
@@ -113,6 +115,16 @@ export class StripeService {
             automatic_payment_methods: {
                 enabled: true,
             },
+        });
+
+        // Create Pending Transaction
+        await this.transactionsService.create({
+            userId: uid,
+            type: 'DEPOSIT',
+            amount: amount,
+            status: 'PENDING',
+            method: 'STRIPE',
+            adminNote: `PaymentIntent: ${paymentIntent.id}`
         });
 
         return {

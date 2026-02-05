@@ -4,11 +4,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../auth/auth.mongoSchema';
 import { Request } from 'express';
+import { TransactionsService } from '../transactions/transactions.service';
 
 @Controller('stripe/webhook')
 export class StripeWebhookController {
     constructor(
         private readonly stripeService: StripeService,
+        private readonly transactionsService: TransactionsService,
         @InjectModel('users') private readonly userModel: Model<User>,
     ) { }
 
@@ -48,6 +50,16 @@ export class StripeWebhookController {
                 if (type === 'deposit' && uid) {
                     const amount = paymentIntent.amount / 100; // Convert cents to dollars
                     console.log(`Processing deposit for user ${uid}: $${amount}`);
+
+                    // Create Transaction Record
+                    await this.transactionsService.create({
+                        userId: uid,
+                        userName: '', // Can be fetched if needed, but not strictly required for history list which is by userId
+                        type: 'DEPOSIT',
+                        amount: amount,
+                        status: 'SUCCESS',
+                        method: 'STRIPE'
+                    });
 
                     // uid is the MongoDB _id passed when creating payment intent
                     const result = await this.userModel.findByIdAndUpdate(

@@ -49,6 +49,23 @@ const apiClient = {
         return data.user || data;
     },
 
+    async getUserTransactions(uid: string): Promise<any[]> {
+        const response = await fetch(`${API_BASE_URL}/transactions/user/${uid}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': API_SECRET,
+            },
+        });
+
+        if (!response.ok) {
+            console.error('Failed to fetch transactions');
+            return [];
+        }
+
+        return response.json();
+    },
+
     async getUser(uid: string): Promise<User> {
         const response = await fetch(`${API_BASE_URL}/users/${uid}`, {
             method: 'GET',
@@ -79,5 +96,8 @@ export const authApi = {
     },
     async getUser(uid: string): Promise<User> {
         return apiClient.getUser(uid);
+    },
+    async getUserTransactions(uid: string): Promise<any[]> {
+        return apiClient.getUserTransactions(uid);
     }
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { authApi } from '@/api/client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,19 +31,27 @@ export default function WalletPage() {
     const [amount, setAmount] = useState('');
     const [isDepositOpen, setIsDepositOpen] = useState(false);
 
-    // Refresh balance on mount
-    useEffect(() => {
-        refreshUser();
-    }, []);
+    const [transactions, setTransactions] = useState<any[]>([]);
 
-    const handleDeposit = () => {
-        // This is handled by PaymentModal now, so this legacy function might be removed or updated
-        setIsDepositOpen(false);
-        setAmount('');
+    useEffect(() => {
+        if (user?.uid) {
+            refreshUser(); // Updates balance
+            fetchTransactions(); // Updates history
+        }
+    }, [user?.uid]);
+
+    const fetchTransactions = async () => {
+        if (!user?.uid) return;
+        try {
+            const data = await authApi.getUserTransactions(user.uid);
+            setTransactions(data);
+        } catch (error) {
+            console.error('Failed to load transactions', error);
+        }
     };
 
-    // TODO: Connect to real transaction history API
-    const transactions: any[] = [];
+    const completedTransactions = transactions.filter(tx => tx.status === 'SUCCESS' || tx.status === 'success');
+    const pendingTransactions = transactions.filter(tx => tx.status === 'PENDING' || tx.status === 'pending');
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -69,7 +78,10 @@ export default function WalletPage() {
 
                 {/* Quick Actions */}
                 <Card className="col-span-1 border-red-600/30 flex flex-col justify-center items-center p-6 bg-neutral-900 space-y-4">
-                    <PaymentModal>
+                    <PaymentModal onSuccess={() => {
+                        refreshUser();
+                        fetchTransactions();
+                    }}>
                         <Button size="lg" className="w-full min-h-[80px] flex flex-col gap-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-red-600/30 shadow-sm">
                             <div className="h-10 w-10 rounded-full bg-red-900/30 text-red-500 flex items-center justify-center">
                                 <Plus className="h-6 w-6" />
@@ -100,29 +112,26 @@ export default function WalletPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {transactions.length > 0 ? (
+                                {completedTransactions.length > 0 ? (
                                     <div className="space-y-4">
-                                        {transactions.map((tx) => (
-                                            <div key={tx.id} className="flex items-center justify-between p-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-lg transition-colors">
+                                        {completedTransactions.map((tx) => (
+                                            <div key={tx._id || tx.id} className="flex items-center justify-between p-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-lg transition-colors">
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`p-2 rounded-full ${tx.amount > 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                                        {tx.amount > 0 ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
+                                                    <div className={`p-2 rounded-full ${tx.type === 'DEPOSIT' || tx.type === 'GAME_WIN' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                                        {tx.type === 'DEPOSIT' || tx.type === 'GAME_WIN' ? <ArrowDownLeft size={18} /> : <ArrowUpRight size={18} />}
                                                     </div>
                                                     <div>
                                                         <p className="font-medium">
-                                                            {tx.type === 'deposit' ? 'Deposit' : tx.type === 'game_win' ? 'Game Winnings' : 'Withdrawal'}
+                                                            {tx.type === 'DEPOSIT' ? 'Deposit' : tx.type === 'GAME_WIN' ? 'Game Winnings' : tx.type === 'WITHDRAWAL' ? 'Withdrawal' : tx.type}
                                                         </p>
-                                                        <p className="text-sm text-neutral-500">{tx.date}</p>
+                                                        <p className="text-sm text-neutral-500">{new Date(tx.timestamp).toLocaleDateString()} {new Date(tx.timestamp).toLocaleTimeString()}</p>
                                                     </div>
                                                 </div>
-                                                <span className={`font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-neutral-900 dark:text-neutral-100'}`}>
-                                                    {tx.amount > 0 ? '+' : ''}{tx.amount.toFixed(2)}
+                                                <span className={`font-bold ${tx.type === 'DEPOSIT' || tx.type === 'GAME_WIN' ? 'text-green-600' : 'text-neutral-900 dark:text-neutral-100'}`}>
+                                                    {tx.type === 'DEPOSIT' || tx.type === 'GAME_WIN' ? '+' : '-'}{tx.amount.toFixed(2)}
                                                 </span>
                                             </div>
                                         ))}
-                                        <div className="text-center pt-4">
-                                            <Button variant="link" className="text-neutral-500">View all transactions</Button>
-                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-neutral-400">
@@ -134,8 +143,33 @@ export default function WalletPage() {
                     </TabsContent>
                     <TabsContent value="pending">
                         <Card className="bg-neutral-900 border-red-600/30">
-                            <CardContent className="pt-6 text-center text-neutral-400">
-                                No pending transactions.
+                            <CardContent className="pt-6">
+                                {pendingTransactions.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {pendingTransactions.map((tx) => (
+                                            <div key={tx._id || tx.id} className="flex items-center justify-between p-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 rounded-lg transition-colors opacity-70">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="p-2 rounded-full bg-yellow-100 text-yellow-600">
+                                                        <History size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium">
+                                                            {tx.type === 'DEPOSIT' ? 'Deposit (Pending)' : 'Withdrawal (Pending)'}
+                                                        </p>
+                                                        <p className="text-sm text-neutral-500">{new Date(tx.timestamp).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-yellow-600">
+                                                    {tx.amount.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-neutral-400">
+                                        No pending transactions.
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>

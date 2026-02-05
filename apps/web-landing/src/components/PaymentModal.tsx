@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 // Make sure to put your publishable key here
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
-const CheckoutForm = ({ amount, clientSecret, onSuccess }: { amount: number, clientSecret: string, onSuccess: () => void }) => {
+const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser }: { amount: number, clientSecret: string, onSuccess: () => void, refreshUser: () => Promise<void> }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -43,10 +43,15 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess }: { amount: number, cli
             setErrorMessage(error.message ?? 'An unknown error occurred');
             setIsProcessing(false);
         } else {
-            // Successful payment
+            // Successful payment - refresh user data to get updated balance
             toast.success(`Successfully deposited $${amount}`);
-            onSuccess();
-            setIsProcessing(false);
+
+            // Wait a moment for webhook to process, then refresh balance
+            setTimeout(async () => {
+                await refreshUser();
+                onSuccess();
+                setIsProcessing(false);
+            }, 1500);
         }
     };
 
@@ -61,8 +66,8 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess }: { amount: number, cli
     );
 };
 
-export default function PaymentModal({ children }: { children: React.ReactNode }) {
-    const { user } = useAuth();
+export default function PaymentModal({ children, onSuccess }: { children: React.ReactNode, onSuccess?: () => void }) {
+    const { user, refreshUser } = useAuth();
     const [amount, setAmount] = useState('');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -141,7 +146,11 @@ export default function PaymentModal({ children }: { children: React.ReactNode }
                         <CheckoutForm
                             amount={Number(amount)}
                             clientSecret={clientSecret}
-                            onSuccess={() => setIsOpen(false)}
+                            onSuccess={() => {
+                                setIsOpen(false);
+                                onSuccess?.();
+                            }}
+                            refreshUser={refreshUser}
                         />
                     </Elements>
                 )}
