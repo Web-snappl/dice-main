@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/types.dart';
 import '../utils/api.dart';
 import '../utils/secure_storage.dart';
 
-class AppProvider extends ChangeNotifier {
+class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   Screen _currentScreen = Screen.login;
   bool _isAuthenticated = false;
   bool _isAdmin = false;
@@ -41,6 +42,7 @@ class AppProvider extends ChangeNotifier {
   List<Transaction> get transactions => _transactions;
 
   Future<void> initialize() async {
+    WidgetsBinding.instance.addObserver(this);
     // Just load local data and proceed immediately to prevent black screen blocking
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -431,7 +433,33 @@ class AppProvider extends ChangeNotifier {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('📱 App resumed - triggering balance refresh burst');
+      _startBurstPolling();
+    }
+  }
+
+  void _startBurstPolling() {
+    if (!_isAuthenticated || !_isOnline) return;
+    
+    // Immediate check
+    refreshBalance();
+    
+    // Check every 2 seconds for 20 seconds
+    int attempts = 0;
+    Timer.periodic(const Duration(seconds: 2), (timer) {
+      attempts++;
+      refreshBalance();
+      if (attempts >= 10) {
+        timer.cancel();
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopBalanceRefreshTimer();
     super.dispose();
   }

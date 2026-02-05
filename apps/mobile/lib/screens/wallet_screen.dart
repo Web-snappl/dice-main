@@ -3,6 +3,7 @@ import '../models/types.dart';
 import '../utils/i18n.dart';
 import '../utils/app_theme.dart';
 import '../widgets/app_button.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class WalletScreen extends StatelessWidget {
   final User user;
@@ -119,7 +120,7 @@ class WalletScreen extends StatelessWidget {
                         child: AppButton(
                           variant: ButtonVariant.primary,
                           fullWidth: true,
-                          onPressed: () => _showInfoDialog(context),
+                          onPressed: () => _openWebWallet(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
@@ -141,7 +142,7 @@ class WalletScreen extends StatelessWidget {
                         child: AppButton(
                           variant: ButtonVariant.secondary,
                           fullWidth: true,
-                          onPressed: () => _showInfoDialog(context),
+                          onPressed: () => _openWebWallet(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
@@ -202,31 +203,29 @@ class WalletScreen extends StatelessWidget {
     );
   }
 
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: BorderSide(color: AppColors.border),
-        ),
-        title: Text(
-          t('Coming Soon'),
-          style: AppTextStyles.title(fontSize: 18),
-        ),
-        content: Text(
-          t('This feature is coming soon.'),
-          style: AppTextStyles.body(color: AppColors.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('OK', style: TextStyle(color: AppColors.primary)),
+  Future<void> _openWebWallet(BuildContext context) async {
+    const url = 'https://dice-main-production.up.railway.app/dashboard/wallet';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text(t('Error'), style: AppTextStyles.title()),
+            content: Text(t('Could not open web wallet'), style: AppTextStyles.body()),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('OK', style: TextStyle(color: AppColors.primary)),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
+      }
+    }
   }
 
   Widget _buildTransactionItem(Transaction tx) {
