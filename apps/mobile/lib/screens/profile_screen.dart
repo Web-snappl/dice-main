@@ -126,35 +126,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    t('My Profile'),
-                    style: AppTextStyles.title(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 2,
+                  Flexible(
+                    child: Text(
+                      t('My Profile'),
+                      style: AppTextStyles.title(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.white),
+                        icon: const Icon(Icons.edit, color: Colors.white, size: 20),
                         onPressed: () => setState(
                             () => _currentView = ProfileView.editProfile),
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.05),
                           side: BorderSide(
                               color: Colors.white.withValues(alpha: 0.1)),
+                          padding: const EdgeInsets.all(8),
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.red),
+                        icon: const Icon(Icons.logout, color: Colors.red, size: 20),
                         onPressed: widget.onLogout,
                         style: IconButton.styleFrom(
                           backgroundColor: Colors.red.withValues(alpha: 0.1),
                           side: BorderSide(
                               color: Colors.red.withValues(alpha: 0.3)),
+                          padding: const EdgeInsets.all(8),
                         ),
                       ),
                     ],
@@ -234,46 +241,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
 
                     // Email & Phone
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.email,
                                 size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(
-                              widget.user.email,
-                              style: AppTextStyles.body(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
+                            Flexible(
+                              child: Text(
+                                widget.user.email,
+                                style: AppTextStyles.body(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                         if (widget.user.phone != null &&
-                            widget.user.phone!.isNotEmpty) ...[
-                          Container(
-                            width: 1,
-                            height: 12,
-                            margin: const EdgeInsets.symmetric(horizontal: 12),
-                            color: Colors.grey.shade600,
-                          ),
+                            widget.user.phone!.isNotEmpty)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.phone,
                                   size: 12, color: Colors.grey),
                               const SizedBox(width: 4),
-                              Text(
-                                widget.user.phone!,
-                                style: AppTextStyles.body(
-                                  fontSize: 12,
-                                  color: AppColors.textMuted,
+                              Flexible(
+                                child: Text(
+                                  widget.user.phone!,
+                                  style: AppTextStyles.body(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
-                        ],
                       ],
                     ),
 
@@ -304,19 +314,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Expanded(
                           child: _buildStatCard(
-                              t('Total Games'),
+                              t('Played'),
                               widget.user.stats.gamesPlayed.toString(),
                               Colors.white),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildStatCard(t('Win Rate'), '$_winRate%',
+                          child: _buildStatCard(t('Win %'), '$_winRate%',
                               AppColors.primary),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildStatCard(
-                              t('Total Won'),
+                              t('Won'),
                               '${(widget.user.stats.totalWon / 1000).toStringAsFixed(1)}k',
                               AppColors.gold),
                         ),
@@ -445,30 +455,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatCard(String label, String value, Color valueColor) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.4),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTextStyles.body(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
               color: AppColors.textMuted,
-              letterSpacing: 1.5,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTextStyles.digital(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: valueColor,
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: AppTextStyles.digital(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
             ),
           ),
         ],

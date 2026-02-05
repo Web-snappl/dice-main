@@ -122,15 +122,21 @@ class WalletScreen extends StatelessWidget {
                           onPressed: () => _showInfoDialog(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.add, size: 18, color: Colors.white),
-                              const SizedBox(width: 8),
-                              Text(t('Deposit')),
+                              const Icon(Icons.add, size: 16, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  t('Deposit'),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: AppButton(
                           variant: ButtonVariant.secondary,
@@ -138,10 +144,16 @@ class WalletScreen extends StatelessWidget {
                           onPressed: () => _showInfoDialog(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.arrow_upward, size: 18, color: AppColors.textMain),
-                              const SizedBox(width: 8),
-                              Text(t('Withdraw')),
+                              const Icon(Icons.arrow_upward, size: 16, color: AppColors.textMain),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  t('Withdraw'),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ],
                           ),
                         ),

@@ -18,12 +18,17 @@ class DiceTableScreen extends StatefulWidget {
   final bool isOnline;
   final String language;
 
+  final double minBet;
+  final double commissionRate;
+
   const DiceTableScreen({
     super.key,
     required this.user,
     required this.setUser,
     required this.setScreen,
     required this.addHistory,
+    required this.minBet,
+    required this.commissionRate,
     this.isOnline = true,
     this.language = 'English',
   });
@@ -204,13 +209,21 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
     final isHouseWin = finalValue == 1;
     final winningBetAmount = _bets[finalValue] ?? 0;
     final isWin = !isHouseWin && winningBetAmount > 0;
-    final winAmount = winningBetAmount * _multiplier;
+    
+    double winAmount = 0.0;
+    double fee = 0.0;
+
+    if (isWin) {
+      final grossWin = winningBetAmount * _multiplier;
+      fee = grossWin * (widget.commissionRate / 100);
+      winAmount = grossWin - fee;
+    }
 
     if (isWin) {
       AudioManager().play(SoundType.win);
       setState(() {
         _resultMessage = {
-          'text': '${t('Win Caps')} +${winAmount.toInt()}',
+          'text': '${t('Win Caps')} +${winAmount.toInt()}\n${t('House Fee')}: -${fee.toInt()}',
           'type': 'WIN',
         };
       });
@@ -226,11 +239,11 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
 
     widget.setUser(widget.user.copyWith(
       wallet: widget.user.wallet.copyWith(
-        balance: widget.user.wallet.balance + (isWin ? winAmount : 0),
+        balance: widget.user.wallet.balance + winAmount,
       ),
       stats: widget.user.stats.copyWith(
         gamesWon: isWin ? widget.user.stats.gamesWon + 1 : widget.user.stats.gamesWon,
-        totalWon: widget.user.stats.totalWon + (isWin ? winAmount : 0),
+        totalWon: widget.user.stats.totalWon + winAmount,
       ),
     ));
 
@@ -255,6 +268,16 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
   void _handleCustomSubmit(int num) {
     final val = double.tryParse(_customBetInput);
     if (val != null && val > 0) {
+      if (val < widget.minBet) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t('Min Bet')}: ${widget.minBet.toInt()} CFA'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
       _handleSelectBet(num, val);
       setState(() => _customBetInput = '');
     }
@@ -440,6 +463,7 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                               itemCount: 6,
                                               itemBuilder: (context, index) {
                                                 final num = index + 1;
+                                                final isHouseNumber = num == 1; // Number 1 is house win
                                                 final myBet = _bets[num];
                                                 final isSelected = myBet != null;
                                                 final isWinningNum = _gameState == 'RESULT' && _diceValue == num;
@@ -447,7 +471,7 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                                 return CompositedTransformTarget(
                                                   link: _layerLinks[index],
                                                   child: MouseRegion(
-                                                    onEnter: (_) {
+                                                    onEnter: isHouseNumber ? null : (_) {
                                                       setState(() {
                                                         _hoveredNum = num;
                                                         if (_gameState == 'IDLE' && _activeMenuNum != num) {
@@ -457,7 +481,7 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                                         }
                                                       });
                                                     },
-                                                    onExit: (_) {
+                                                    onExit: isHouseNumber ? null : (_) {
                                                       setState(() => _hoveredNum = null);
                                                       _menuSwitchTimer?.cancel();
                                                       _menuSwitchTimer = Timer(const Duration(milliseconds: 300), () {
@@ -470,8 +494,9 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                                       clipBehavior: Clip.none,
                                                       children: [
                                                         GestureDetector(
-                                                          onTap: _gameState == 'IDLE'
-                                                              ? () {
+                                                          onTap: (isHouseNumber || _gameState != 'IDLE')
+                                                              ? null
+                                                              : () {
                                                                   _menuSwitchTimer?.cancel();
                                                                   if (_activeMenuNum != num) {
                                                                     setState(() {
@@ -480,22 +505,25 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                                                     });
                                                                     AudioManager().play(SoundType.click);
                                                                   }
-                                                                }
-                                                              : null,
+                                                                },
                                                           child: Container(
                                                             decoration: BoxDecoration(
-                                                              color: isWinningNum 
-                                                                  ? AppColors.gold
-                                                                  : isSelected 
-                                                                      ? AppColors.primary
-                                                                      : (_hoveredNum == num)
-                                                                          ? AppColors.surface.withOpacity(0.8)
-                                                                          : AppColors.background,
+                                                              color: isHouseNumber
+                                                                  ? Colors.grey.shade900
+                                                                  : isWinningNum 
+                                                                      ? AppColors.gold
+                                                                      : isSelected 
+                                                                          ? AppColors.primary
+                                                                          : (_hoveredNum == num)
+                                                                              ? AppColors.surface.withOpacity(0.8)
+                                                                              : AppColors.background,
                                                               border: Border.all(
-                                                                color: isWinningNum || isSelected 
-                                                                    ? Colors.transparent 
-                                                                    : AppColors.border,
-                                                                width: 1,
+                                                                color: isHouseNumber
+                                                                    ? Colors.red.withOpacity(0.5)
+                                                                    : isWinningNum || isSelected 
+                                                                        ? Colors.transparent 
+                                                                        : AppColors.border,
+                                                                width: isHouseNumber ? 2 : 1,
                                                               ),
                                                               borderRadius: BorderRadius.circular(16),
                                                               boxShadow: isSelected || isWinningNum ? [
@@ -506,19 +534,77 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
                                                                 )
                                                               ] : null,
                                                             ),
-                                                            child: Center(
-                                                              child: Text(
-                                                                '$num',
-                                                                style: AppTextStyles.display(
-                                                                  fontSize: 48, 
-                                                                  fontWeight: FontWeight.bold,
-                                                                  color: isWinningNum 
-                                                                      ? Colors.black 
-                                                                      : isSelected 
-                                                                          ? Colors.black 
-                                                                          : Colors.white,
+                                                            child: Stack(
+                                                              children: [
+                                                                Center(
+                                                                  child: Text(
+                                                                    '$num',
+                                                                    style: AppTextStyles.display(
+                                                                      fontSize: 48, 
+                                                                      fontWeight: FontWeight.bold,
+                                                                      color: isHouseNumber
+                                                                          ? Colors.grey.shade700
+                                                                          : isWinningNum 
+                                                                              ? Colors.black 
+                                                                              : isSelected 
+                                                                                  ? Colors.black 
+                                                                                  : Colors.white,
+                                                                    ),
+                                                                  ),
                                                                 ),
-                                                              ),
+                                                                // Stop sign overlay for house number (1)
+                                                                if (isHouseNumber)
+                                                                  Positioned.fill(
+                                                                    child: Container(
+                                                                      decoration: BoxDecoration(
+                                                                        borderRadius: BorderRadius.circular(16),
+                                                                      ),
+                                                                      child: Stack(
+                                                                        alignment: Alignment.center,
+                                                                        children: [
+                                                                          // Diagonal line (prohibition sign)
+                                                                          Transform.rotate(
+                                                                            angle: -0.785398, // -45 degrees
+                                                                            child: Container(
+                                                                              width: 70,
+                                                                              height: 4,
+                                                                              decoration: BoxDecoration(
+                                                                                color: Colors.red,
+                                                                                borderRadius: BorderRadius.circular(2),
+                                                                                boxShadow: [
+                                                                                  BoxShadow(
+                                                                                    color: Colors.red.withOpacity(0.5),
+                                                                                    blurRadius: 8,
+                                                                                  ),
+                                                                                ],
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                          // "HOUSE" label at bottom
+                                                                          Positioned(
+                                                                            bottom: 8,
+                                                                            child: Container(
+                                                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                                              decoration: BoxDecoration(
+                                                                                color: Colors.red.withOpacity(0.9),
+                                                                                borderRadius: BorderRadius.circular(4),
+                                                                              ),
+                                                                              child: Text(
+                                                                                'HOUSE',
+                                                                                style: AppTextStyles.label(
+                                                                                  fontSize: 8,
+                                                                                  fontWeight: FontWeight.bold,
+                                                                                  color: Colors.white,
+                                                                                  letterSpacing: 1,
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                              ],
                                                             ),
                                                           ),
                                                         ),

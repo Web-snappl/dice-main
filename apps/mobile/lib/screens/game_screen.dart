@@ -468,152 +468,135 @@ class _GameScreenState extends State<GameScreen> {
             child: Column(
               children: [
                 if (_gameState == 'READY') ...[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isSmall = constraints.maxWidth < 400;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Table Size
-                          Expanded(
-                            flex: 5,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  t('Table Size').toUpperCase(),
-                                  style: AppTextStyles.title(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white54,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.all(2),
+                  // Table Size - Compact horizontal
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t('Table Size').toUpperCase(),
+                        style: AppTextStyles.title(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white54,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                        ),
+                        child: Row(
+                          children: [2, 3].map((count) {
+                            bool isSelected = widget.playerCount == count;
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  AudioManager().play(SoundType.click);
+                                  widget.onPlayerCountChange(count);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
                                   decoration: BoxDecoration(
-                                    color: AppColors.background,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                                    color: isSelected ? AppColors.primary : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Row(
-                                    children: [2, 3].map((count) {
-                                      bool isSelected = widget.playerCount == count;
-                                      return Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            AudioManager().play(SoundType.click);
-                                            widget.onPlayerCountChange(count);
-                                          },
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 200),
-                                            padding: const EdgeInsets.symmetric(vertical: 10),
-                                            decoration: BoxDecoration(
-                                              color: isSelected ? AppColors.primary : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              count.toString(),
-                                              textAlign: TextAlign.center,
-                                                style: AppTextStyles.title(
-                                                  color: isSelected ? Colors.black : Colors.white24,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Bet amount
-                          Expanded(
-                            flex: 2, // Decreased width relative to Table Size (2/7 instead of 2/5)
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  t('Select Amount').toUpperCase(),
-                                  style: AppTextStyles.title(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white54,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                  Container(
-                                    height: 48, // Increased height
-                                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.background,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () {
-                                            AudioManager().play(SoundType.click);
-                                            final newAmount = (widget.betAmount - 100).clamp(500.0, double.infinity);
-                                            widget.onBetAmountChange(newAmount);
-                                          },
-                                          icon: const Icon(Icons.remove, color: AppColors.primary, size: 16),
-                                        ),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _betController,
-                                            keyboardType: TextInputType.number,
-                                            textAlign: TextAlign.center,
-                                            cursorColor: AppColors.primary,
-                                            style: AppTextStyles.title(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w900,
-                                              color: Colors.white,
-                                            ),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                              border: InputBorder.none,
-                                              hintText: '0',
-                                              hintStyle: TextStyle(color: Colors.white24),
-                                            ),
-                                            onChanged: (value) {
-                                              final val = double.tryParse(value);
-                                              if (val != null) {
-                                                widget.onBetAmountChange(val);
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                        IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () {
-                                            AudioManager().play(SoundType.click);
-                                            final newAmount = widget.betAmount + 100;
-                                            widget.onBetAmountChange(newAmount);
-                                          },
-                                          icon: const Icon(Icons.add, color: AppColors.primary, size: 16),
-                                        ),
-                                      ],
+                                  child: Text(
+                                    count.toString(),
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.title(
+                                      color: isSelected ? Colors.black : Colors.white24,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                              ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Bet amount - Full width large field
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t('Bet Amount').toUpperCase(),
+                        style: AppTextStyles.title(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white54,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                AudioManager().play(SoundType.click);
+                                final newAmount = (widget.betAmount - 100).clamp(200.0, double.infinity);
+                                widget.onBetAmountChange(newAmount);
+                              },
+                              icon: const Icon(Icons.remove_circle, color: AppColors.primary, size: 28),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                            Expanded(
+                              child: TextField(
+                                controller: _betController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                cursorColor: AppColors.primary,
+                                style: AppTextStyles.title(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  border: InputBorder.none,
+                                  hintText: '0',
+                                  hintStyle: TextStyle(color: Colors.white24, fontSize: 24),
+                                ),
+                                onChanged: (value) {
+                                  final val = double.tryParse(value);
+                                  if (val != null) {
+                                    widget.onBetAmountChange(val);
+                                  }
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                AudioManager().play(SoundType.click);
+                                final newAmount = widget.betAmount + 100;
+                                widget.onBetAmountChange(newAmount);
+                              },
+                              icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   MouseRegion(

@@ -43,7 +43,10 @@ const apiClient = {
             throw new Error(errorData.message || 'Login failed');
         }
 
-        return response.json();
+        const data = await response.json();
+        // Backend returns { accessToken, refreshToken, user: {...} }
+        // Extract user object which contains the balance
+        return data.user || data;
     },
 
     async getUser(uid: string): Promise<User> {

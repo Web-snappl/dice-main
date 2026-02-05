@@ -12,9 +12,10 @@ class AppProvider extends ChangeNotifier {
   bool _isOnline = true;
   bool _isLoading = true;
   
-  double _betAmount = 500;
+  double _betAmount = 200;
   int _playerCount = 2;
   double _commissionRate = 5.0;
+  double _minBet = 100.0;
   String _language = 'Français';
   
   User? _currentUser;
@@ -30,6 +31,7 @@ class AppProvider extends ChangeNotifier {
   double get betAmount => _betAmount;
   int get playerCount => _playerCount;
   double get commissionRate => _commissionRate;
+  double get minBet => _minBet;
   String get language => _language;
   User? get currentUser => _currentUser;
   List<User> get registeredUsers => _registeredUsers;
@@ -41,6 +43,8 @@ class AppProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _language = prefs.getString('app_language') ?? 'Français';
+      _minBet = prefs.getDouble('app_min_bet') ?? 100.0;
+      _commissionRate = prefs.getDouble('app_commission_rate') ?? 5.0;
       
       final usersJson = prefs.getString('app_users_v3');
       if (usersJson != null) {
@@ -81,6 +85,7 @@ class AppProvider extends ChangeNotifier {
         _isAdmin = user.role == UserRole.admin;
         _currentScreen = _isAdmin ? Screen.admin : Screen.home;
         debugPrint('✅ Session restored for: ${user.name}');
+        debugPrint('💰 Balance from API: ${user.wallet.balance}');
       }
     } catch (e) {
       debugPrint('⚠️ Session restore failed: $e');
@@ -127,6 +132,17 @@ class AppProvider extends ChangeNotifier {
 
   void setCommissionRate(double rate) {
     _commissionRate = rate;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setDouble('app_commission_rate', rate);
+    });
+    notifyListeners();
+  }
+
+  void setMinBet(double amount) {
+    _minBet = amount;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setDouble('app_min_bet', amount);
+    });
     notifyListeners();
   }
 
@@ -192,22 +208,18 @@ class AppProvider extends ChangeNotifier {
               throw Exception('Account is blocked. Contact support.');
             }
 
-            // Restore wallet/stats from local cache
-            final localUser = _registeredUsers.firstWhere(
-              (u) => u.id == user.id || u.email == user.email,
-              orElse: () => user,
-            );
-            
+            // Use balance from API, NOT local cache
+            // Local cache only used for offline fallback
             final finalUser = User(
               id: user.id,
               name: user.name,
               email: user.email,
               phone: user.phone,
-              wallet: localUser.wallet,
+              wallet: user.wallet,  // Use API balance - CRITICAL!
               avatarUrl: user.avatarUrl,
               role: user.role,
               isBlocked: user.isBlocked,
-              stats: localUser.stats,
+              stats: user.stats,    // Use API stats
               withdrawalLimits: user.withdrawalLimits,
             );
 

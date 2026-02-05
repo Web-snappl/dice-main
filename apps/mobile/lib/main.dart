@@ -262,6 +262,8 @@ class _AppWrapperState extends State<AppWrapper> {
           setUser: appState.setCurrentUser,
           setScreen: appState.setScreen,
           addHistory: appState.addHistory,
+          minBet: appState.minBet,
+          commissionRate: appState.commissionRate,
           isOnline: appState.isOnline,
           language: appState.language,
         );
@@ -346,9 +348,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.8),
-                    Colors.black.withValues(alpha: 0.4),
-                    Colors.black.withValues(alpha: 0.9),
+                    Colors.black.withValues(alpha: 0.6),
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.7),
                   ],
                 ),
               ),
@@ -443,13 +445,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    I18n.translate('By Big Size', appState.language).toUpperCase(),
-                    style: AppTextStyles.digital(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.gold,
-                      letterSpacing: 4,
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      I18n.translate('By Big Size', appState.language),
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.body(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.gold.withValues(alpha: 0.9),
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 80),

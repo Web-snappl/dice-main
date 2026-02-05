@@ -3,7 +3,10 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app-module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    // Enable raw body for Stripe webhook signature verification
+    rawBody: true,
+  });
   const logger = new Logger('Bootstrap');
 
   // Enhanced CORS configuration
@@ -14,6 +17,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:5173',
       'http://localhost:5174',
+      'http://localhost:8080',
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
