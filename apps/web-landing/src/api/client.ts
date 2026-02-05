@@ -96,7 +96,10 @@ const apiClient = {
                 },
                 body: JSON.stringify({ uid, returnUrl, refreshUrl }),
             });
-            if (!response.ok) throw new Error('Failed to start onboarding');
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to start onboarding');
+            }
             return response.json();
         },
 

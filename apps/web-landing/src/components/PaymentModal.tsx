@@ -128,8 +128,8 @@ export default function PaymentModal({ children, onSuccess, initialTab = 'deposi
             const refreshUrl = window.location.href;
             const { url } = await stripeApi.onboard(user!.uid, returnUrl, refreshUrl);
             window.location.href = url;
-        } catch (error) {
-            toast.error('Failed to start onboarding');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to start onboarding');
             console.error(error);
             setIsLoading(false);
         }

@@ -23,7 +23,12 @@ export class StripeService {
             if (!user) {
                 user = await this.userModel.findOne({ uid: uid });
             }
-            if (!user) throw new Error('User not found');
+            // Fallback: Check if uid is a valid MongoDB _id and search by it
+            if (!user && /^[0-9a-fA-F]{24}$/.test(uid)) {
+                user = await this.userModel.findById(uid);
+            }
+
+            if (!user) throw new Error(`User not found for uid: ${uid}`);
 
             let accountId = user.stripeAccountId;
 
