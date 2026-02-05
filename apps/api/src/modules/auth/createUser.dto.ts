@@ -64,6 +64,8 @@ export interface UserReturnType {
     role: UserRole;
     photoURL?: string;
     balance?: number;
+    stripeAccountId?: string;
+    isStripeConnected?: boolean;
 }
 
 export interface AuthError {

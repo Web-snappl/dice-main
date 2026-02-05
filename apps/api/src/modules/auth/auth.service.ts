@@ -32,6 +32,8 @@ export interface UserLoginResponse {
         phoneNumber: string;
         role: string;
         balance: number;
+        stripeAccountId?: string;
+        isStripeConnected?: boolean;
     };
 }
 
@@ -133,6 +135,8 @@ export class AuthService {
                 phoneNumber: user.phoneNumber,
                 role: user.role,
                 balance: user.balance || 0,
+                stripeAccountId: user.stripeAccountId,
+                isStripeConnected: user.isStripeConnected,
             },
         };
     }
@@ -155,6 +159,8 @@ export class AuthService {
             phoneNumber: user.phoneNumber,
             role: user.role,
             balance: user.balance || 0,
+            stripeAccountId: user.stripeAccountId,
+            isStripeConnected: user.isStripeConnected,
         };
     }
 
@@ -254,6 +260,8 @@ export class AuthService {
                 phoneNumber: user.phoneNumber,
                 role: user.role,
                 balance: user.balance || 0,
+                stripeAccountId: user.stripeAccountId,
+                isStripeConnected: user.isStripeConnected,
             },
         };
     }
@@ -296,6 +304,8 @@ export class AuthService {
             role: user.role,
             balance: user.balance || 0,
             status: user.status,
+            stripeAccountId: user.stripeAccountId,
+            isStripeConnected: user.isStripeConnected,
         };
     }
 }

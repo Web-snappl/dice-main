@@ -44,7 +44,7 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser, updateUser
             setIsProcessing(false);
         } else {
             // Successful payment - Optimistic Update
-            toast.success(`Successfully deposited $${amount}`);
+            toast.success(`Successfully deposited ${amount} CFA`);
 
             // 1. Optimistic local update (Instant feedback)
             updateUser({ balance: (Number(user?.balance) || 0) + Number(amount) });
@@ -70,18 +70,23 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser, updateUser
             <PaymentElement />
             {errorMessage && <div className="text-red-500 text-sm">{errorMessage}</div>}
             <Button disabled={!stripe || isProcessing} className="w-full bg-red-600 hover:bg-red-700 text-white">
-                {isProcessing ? 'Processing...' : `Pay $${amount}`}
+                {isProcessing ? 'Processing...' : `Pay ${amount} CFA`}
             </Button>
         </form>
     );
 };
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { stripeApi } from '@/api/client';
+
 export default function PaymentModal({ children, onSuccess }: { children: React.ReactNode, onSuccess?: () => void }) {
     const { user, refreshUser, updateUser } = useAuth();
     const [amount, setAmount] = useState('');
+    const [withdrawAmount, setWithdrawAmount] = useState('');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState('deposit');
 
     const handleInitPayment = async () => {
         if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -99,7 +104,7 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    uid: user?.uid, // specific to this app structure
+                    uid: user?.uid,
                     amount: Number(amount)
                 })
             });
@@ -116,12 +121,57 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
         }
     };
 
+    const handleConnectStripe = async () => {
+        setIsLoading(true);
+        try {
+            const returnUrl = window.location.href;
+            const refreshUrl = window.location.href;
+            const { url } = await stripeApi.onboard(user!.uid, returnUrl, refreshUrl);
+            window.location.href = url;
+        } catch (error) {
+            toast.error('Failed to start onboarding');
+            console.error(error);
+            setIsLoading(false);
+        }
+    };
+
+    const handleWithdraw = async () => {
+        if (!withdrawAmount || isNaN(Number(withdrawAmount)) || Number(withdrawAmount) <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+
+        if (Number(withdrawAmount) > (user?.balance || 0)) {
+            toast.error('Insufficient funds');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await stripeApi.withdraw(user!.uid, Number(withdrawAmount));
+            toast.success('Withdrawal successful!');
+
+            // Optimistic update
+            updateUser({ balance: (user?.balance || 0) - Number(withdrawAmount) });
+            setIsOpen(false);
+            onSuccess?.();
+        } catch (error: any) {
+            toast.error(error.message || 'Withdrawal failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => {
             setIsOpen(open);
             if (!open) {
                 setClientSecret(null);
                 setAmount('');
+                setWithdrawAmount('');
+            } else {
+                // Refresh user status on open to check if stripe connected updated
+                refreshUser();
             }
         }}>
             <DialogTrigger asChild>
@@ -129,44 +179,85 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Add Funds</DialogTitle>
+                    <DialogTitle>Wallet</DialogTitle>
                     <DialogDescription>
-                        Enter amount to deposit via secure Stripe payment.
+                        Manage your funds securely with Stripe.
                     </DialogDescription>
                 </DialogHeader>
 
-                {!clientSecret ? (
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="amount">Amount ($)</Label>
-                            <Input
-                                id="amount"
-                                type="number"
-                                placeholder="25.00"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                            />
-                        </div>
-                        <Button onClick={handleInitPayment} disabled={isLoading} className="w-full">
-                            {isLoading ? 'Initializing...' : 'Continue to Payment'}
-                        </Button>
-                    </div>
-                ) : (
-                    <Elements stripe={stripePromise} options={{ clientSecret }}>
-                        <CheckoutForm
-                            amount={Number(amount)}
-                            clientSecret={clientSecret}
-                            onSuccess={() => {
-                                setIsOpen(false);
-                                onSuccess?.();
-                            }}
+                <Tabs defaultValue="deposit" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="deposit">Deposit</TabsTrigger>
+                        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+                    </TabsList>
 
-                            refreshUser={refreshUser}
-                            updateUser={updateUser}
-                            user={user}
-                        />
-                    </Elements>
-                )}
+                    <TabsContent value="deposit">
+                        {!clientSecret ? (
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="amount">Amount (CFA)</Label>
+                                    <Input
+                                        id="amount"
+                                        type="number"
+                                        placeholder="25.00"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                    />
+                                </div>
+                                <Button onClick={handleInitPayment} disabled={isLoading} className="w-full">
+                                    {isLoading ? 'Initializing...' : 'Continue to Payment'}
+                                </Button>
+                            </div>
+                        ) : (
+                            <Elements stripe={stripePromise} options={{ clientSecret }}>
+                                <CheckoutForm
+                                    amount={Number(amount)}
+                                    clientSecret={clientSecret}
+                                    onSuccess={() => {
+                                        setIsOpen(false);
+                                        onSuccess?.();
+                                    }}
+                                    refreshUser={refreshUser}
+                                    updateUser={updateUser}
+                                    user={user}
+                                />
+                            </Elements>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="withdraw">
+                        <div className="grid gap-4 py-4">
+                            {!user?.isStripeConnected ? (
+                                <div className="text-center space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        To withdraw funds, you need to connect your bank account via Stripe.
+                                    </p>
+                                    <Button onClick={handleConnectStripe} disabled={isLoading} className="w-full">
+                                        {isLoading ? 'Connecting...' : 'Connect Bank Account'}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="withdrawAmount">Amount (CFA)</Label>
+                                        <Input
+                                            id="withdrawAmount"
+                                            type="number"
+                                            placeholder="0.00"
+                                            value={withdrawAmount}
+                                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                                            max={user?.balance}
+                                        />
+                                        <p className="text-xs text-muted-foreground">Available balance: {user?.balance?.toFixed(0)} CFA</p>
+                                    </div>
+                                    <Button onClick={handleWithdraw} disabled={isLoading} className="w-full bg-red-600 hover:bg-red-700 text-white">
+                                        {isLoading ? 'Processing...' : 'Withdraw Funds'}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
     );

@@ -16,6 +16,8 @@ export interface User {
     phoneNumber: string;
     role: string;
     balance?: number;
+    stripeAccountId?: string;
+    isStripeConnected?: boolean;
 }
 
 const apiClient = {
@@ -82,6 +84,49 @@ const apiClient = {
         }
 
         return response.json();
+    },
+
+    stripe: {
+        async onboard(uid: string, returnUrl: string, refreshUrl: string) {
+            const response = await fetch(`${API_BASE_URL}/stripe/onboard`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': API_SECRET,
+                },
+                body: JSON.stringify({ uid, returnUrl, refreshUrl }),
+            });
+            if (!response.ok) throw new Error('Failed to start onboarding');
+            return response.json();
+        },
+
+        async getStatus(uid: string) {
+            const response = await fetch(`${API_BASE_URL}/stripe/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': API_SECRET,
+                },
+                body: JSON.stringify({ uid }),
+            });
+            if (!response.ok) throw new Error('Failed to get status');
+            return response.json();
+        },
+
+        async withdraw(uid: string, amount: number) {
+            const response = await fetch(`${API_BASE_URL}/stripe/withdraw`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': API_SECRET,
+                },
+                body: JSON.stringify({ uid, amount }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Withdrawal failed');
+            return data;
+        }
     }
 };
 
@@ -103,3 +148,5 @@ export const authApi = {
         return apiClient.getUserTransactions(uid);
     }
 };
+
+export const stripeApi = apiClient.stripe;

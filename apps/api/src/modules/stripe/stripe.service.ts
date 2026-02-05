@@ -16,94 +16,90 @@ export class StripeService {
         @InjectModel('users') private readonly userModel: Model<User>,
         private readonly transactionsService: TransactionsService,
     ) { }
-    async CreateSeller(uid: string, firstName: string, lastName: string, email: string, country: string): Promise<SellerResponse> {
-        // check mongodb user collection for user.stripeAccountId
 
-        const user = await this.userModel.findOne({ clerkUserId: uid });
-        // if exists, return error
-        if (!user) return { status: 400, message: 'User not found' };
-        if (user.stripeAccountId) {
-            return { status: 400, message: 'Seller account already exists' };
+    async onboardUser(uid: string, returnUrl: string, refreshUrl: string) {
+        let user = await this.userModel.findOne({ clerkUserId: uid });
+        if (!user) {
+            user = await this.userModel.findOne({ uid: uid });
         }
-        // if doesnt exist, create stripe express account with minimal info
+        if (!user) throw new Error('User not found');
 
-        const account = await stripe.accounts.create({
-            type: "express",
-            country: country,
-            email: email,
-            business_type: "individual",
+        let accountId = user.stripeAccountId;
 
-            // Request minimal capabilities
-            capabilities: {
-                card_payments: { requested: true },
-                transfers: { requested: true },
-            },
-
-            // Business profile (required for Express accounts)
-            business_profile: {
-                product_description: "Online marketplace sales",
-                mcc: "5699", // Miscellaneous specialty retail
-            },
-
-            // KEY: Set manual payouts until full onboarding complete
-            settings: {
-                payouts: {
-                    schedule: {
-                        interval: "manual", // Prevents automatic payouts
+        // 1. Create Connect Account if not exists
+        if (!accountId) {
+            const account = await stripe.accounts.create({
+                type: "express",
+                country: "US", // Defaulting to US for simplicity
+                email: user.email,
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+                settings: {
+                    payouts: {
+                        schedule: {
+                            interval: "manual",
+                        },
                     },
                 },
-            },
+                metadata: {
+                    uid: uid,
+                }
+            });
+            accountId = account.id;
+            user.stripeAccountId = accountId;
+            user.isStripeConnected = false;
+            await user.save();
+        }
 
-            // Minimal individual info (optional but helpful)
-            ...(firstName &&
-                lastName && {
-                individual: {
-                    first_name: firstName,
-                    last_name: lastName,
-                    email: email,
-                    address: {
-                        country: country,
-                    },
-                },
-            }),
-
-            // Metadata for tracking
-            metadata: {
-                onboarding_type: "deferred",
-                platform_user_id: uid,
-            },
+        // 2. Create Account Link for onboarding
+        const accountLink = await stripe.accountLinks.create({
+            account: accountId,
+            refresh_url: refreshUrl,
+            return_url: returnUrl,
+            type: "account_onboarding",
         });
 
-        const accountId = account.id;
-
-        // Update user document
-        user.stripeAccountId = accountId;
-        user.isStripeConnected = false; // Not fully connected for payouts yet
-
-        // Initialize deferred onboarding tracking
-        user.deferredOnboarding = {
-            hasMinimalAccount: true,
-            pendingEarnings: 0,
-            earningsCount: 0,
-            onboardingNotificationSent: false,
-        };
-
-        await user.save();
-
         return {
-            uid: uid,
-            displayName: `${user.firstName} ${user.lastName}`,
-            email: user.email,
-            stripeAccountId: accountId,
-            isStripeConnected: user.isStripeConnected,
-            deferredOnboarding: user.deferredOnboarding,
+            url: accountLink.url,
+            stripeAccountId: accountId
         };
     }
 
+    async getAccountStatus(uid: string) {
+        let user = await this.userModel.findOne({ clerkUserId: uid });
+        if (!user) user = await this.userModel.findOne({ uid: uid });
+        if (!user) throw new Error('User not found');
 
-    async createDepositIntent(uid: string, amount: number, currency: string = 'usd') {
-        // Amount in cents
-        const amountInCents = Math.round(amount * 100);
+        if (!user.stripeAccountId) {
+            return {
+                isConnected: false,
+                detailsSubmitted: false,
+                payoutsEnabled: false,
+            };
+        }
+
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
+
+        const isConnected = account.details_submitted && account.payouts_enabled;
+
+        // Update local status if changed
+        if (user.isStripeConnected !== isConnected) {
+            user.isStripeConnected = isConnected;
+            await user.save();
+        }
+
+        return {
+            isConnected: isConnected,
+            detailsSubmitted: account.details_submitted,
+            payoutsEnabled: account.payouts_enabled,
+            currency: account.default_currency,
+        };
+    }
+
+    async createDepositIntent(uid: string, amount: number, currency: string = 'xof') {
+        const amountInCents = Math.round(amount);
 
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
@@ -139,40 +135,80 @@ export class StripeService {
     }
 
     async createWithdrawal(uid: string, amount: number) {
-        const user = await this.userModel.findOne({ uid: uid }); // uid in mongoSchema is just 'uid' usually, check consistency
+        let user = await this.userModel.findOne({ clerkUserId: uid });
+        if (!user) user = await this.userModel.findOne({ uid: uid });
+
         if (!user) throw new Error('User not found');
 
         if (!user.stripeAccountId) {
-            throw new Error('No Stripe Connect account found');
+            throw new Error('No Connect account found. Please link your bank account first.');
+        }
+
+        // Check if account is actually capable of receiving transfers
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
+        if (!account.payouts_enabled) {
+            throw new Error('Your bank account is not yet verified or ready for payouts. Please check your Stripe settings.');
         }
 
         if ((user.balance || 0) < amount) {
             throw new Error('Insufficient balance');
         }
 
-        // Amount in cents
-        const amountInCents = Math.round(amount * 100);
+        const amountInCents = Math.round(amount);
 
-        // Create a Transfer to the connected account
-        const transfer = await stripe.transfers.create({
-            amount: amountInCents,
-            currency: "usd",
-            destination: user.stripeAccountId,
-            metadata: {
-                uid: uid,
-                type: 'withdrawal'
-            }
+        // 1. Create PENDING Transaction Record
+        await this.transactionsService.create({
+            userId: uid,
+            type: 'WITHDRAWAL',
+            amount: amount,
+            status: 'PENDING',
+            method: 'STRIPE_CONNECT',
         });
 
-        // Deduct balance immediately (optimistic)
-        // In a real app, strict transactions needed.
-        user.balance = (user.balance || 0) - amount;
-        await user.save();
+        try {
+            // 2. Optimistic Balance Deduct
+            user.balance = (user.balance || 0) - amount;
+            await user.save();
 
-        return {
-            transferId: transfer.id,
-            newBalance: user.balance
-        };
+            // 3. Create Transfer
+            const transfer = await stripe.transfers.create({
+                amount: amountInCents,
+                currency: "xof",
+                destination: user.stripeAccountId,
+                metadata: {
+                    uid: uid,
+                    type: 'withdrawal_payout'
+                }
+            });
+
+            // 4. Update Transaction to SUCCESS
+            await this.transactionsService.create({
+                userId: uid,
+                type: 'WITHDRAWAL',
+                amount: amount,
+                status: 'SUCCESS',
+                method: 'STRIPE_CONNECT',
+                adminNote: `Transfer ID: ${transfer.id}, Dest: ${user.stripeAccountId}`
+            });
+
+            return { success: true, transferId: transfer.id, newBalance: user.balance };
+        } catch (error) {
+            // Rollback if Stripe fails
+            user.balance = (user.balance || 0) + amount;
+            await user.save();
+
+            // Mark transaction FAILED
+            await this.transactionsService.create({
+                userId: uid,
+                type: 'WITHDRAWAL',
+                amount: amount,
+                status: 'FAILED',
+                method: 'STRIPE_CONNECT',
+                adminNote: `Error: ${error.message}`
+            });
+
+            throw error;
+        }
     }
 
     // Helper to verify webhook signature

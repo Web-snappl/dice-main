@@ -5,14 +5,21 @@ import { StripeService } from './stripe.service';
 @Controller('stripe')
 export class StripeController {
     constructor(private readonly StripeService: StripeService) { }
+
+    // Legacy endpoint, can be removed or kept for admin usage if needed
     async createSellerAccount(@Body(ValidationPipe) createSellerDto: CreateSellerDto): Promise<SellerResponse> {
-        return this.StripeService.CreateSeller(
-            createSellerDto.uid,
-            createSellerDto.firstName,
-            createSellerDto.lastName,
-            createSellerDto.email,
-            createSellerDto.country
-        );
+        // This legacy method is not used in the new flow but kept for compatibility
+        return { status: 400, message: 'Deprecated. Use /stripe/onboard' } as any;
+    }
+
+    @Post('onboard')
+    async onboardUser(@Body() body: { uid: string, returnUrl: string, refreshUrl: string }) {
+        return this.StripeService.onboardUser(body.uid, body.returnUrl, body.refreshUrl);
+    }
+
+    @Post('status')
+    async getAccountStatus(@Body() body: { uid: string }) {
+        return this.StripeService.getAccountStatus(body.uid);
     }
 
     @Post('create-deposit-intent')
