@@ -79,18 +79,18 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser, updateUser
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { stripeApi } from '@/api/client';
 
-export default function PaymentModal({ children, onSuccess }: { children: React.ReactNode, onSuccess?: () => void }) {
+export default function PaymentModal({ children, onSuccess, initialTab = 'deposit' }: { children: React.ReactNode, onSuccess?: () => void, initialTab?: 'deposit' | 'withdraw' }) {
     const { user, refreshUser, updateUser } = useAuth();
     const [amount, setAmount] = useState('');
     const [withdrawAmount, setWithdrawAmount] = useState('');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('deposit');
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const handleInitPayment = async () => {
-        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-            toast.error('Please enter a valid amount');
+        if (!amount || isNaN(Number(amount)) || Number(amount) < 200) {
+            toast.error('Minimum deposit is 200 CFA');
             return;
         }
 
@@ -185,7 +185,7 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
                     </DialogDescription>
                 </DialogHeader>
 
-                <Tabs defaultValue="deposit" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs defaultValue="deposit" value={activeTab} onValueChange={(v) => setActiveTab(v as 'deposit' | 'withdraw')} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="deposit">Deposit</TabsTrigger>
                         <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
@@ -199,7 +199,7 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
                                     <Input
                                         id="amount"
                                         type="number"
-                                        placeholder="25.00"
+                                        placeholder="1000"
                                         value={amount}
                                         onChange={(e) => setAmount(e.target.value)}
                                     />

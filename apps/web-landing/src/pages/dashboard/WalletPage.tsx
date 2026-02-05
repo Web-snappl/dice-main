@@ -90,9 +90,14 @@ export default function WalletPage() {
                         </Button>
                     </PaymentModal>
 
-                    <Button variant="outline" size="lg" className="w-full min-h-[60px] flex flex-col gap-1 border-red-600/30 bg-transparent hover:bg-neutral-800 text-neutral-300" onClick={() => toast.info('Withdrawal integration coming soon')}>
-                        <span className="font-semibold">Withdraw Funds</span>
-                    </Button>
+                    <PaymentModal initialTab="withdraw" onSuccess={() => {
+                        refreshUser();
+                        fetchTransactions();
+                    }}>
+                        <Button variant="outline" size="lg" className="w-full min-h-[60px] flex flex-col gap-1 border-red-600/30 bg-transparent hover:bg-neutral-800 text-neutral-300">
+                            <span className="font-semibold">Withdraw Funds</span>
+                        </Button>
+                    </PaymentModal>
                 </Card>
             </div>
 

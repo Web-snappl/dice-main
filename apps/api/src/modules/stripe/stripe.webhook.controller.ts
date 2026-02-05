@@ -69,8 +69,8 @@ export class StripeWebhookController {
                 if (type === 'deposit' && uid) {
                     // ... (existing deposit logic)
 
-                    const amount = paymentIntent.amount / 100; // Convert cents to dollars
-                    console.log(`Processing deposit for user ${uid}: $${amount}`);
+                    const amount = paymentIntent.amount; // XOF is zero-decimal, no conversion needed
+                    console.log(`Processing deposit for user ${uid}: ${amount} CFA`);
 
                     // Create Transaction Record
                     await this.transactionsService.create({

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { SellerResponse } from './createSeller.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -18,53 +18,58 @@ export class StripeService {
     ) { }
 
     async onboardUser(uid: string, returnUrl: string, refreshUrl: string) {
-        let user = await this.userModel.findOne({ clerkUserId: uid });
-        if (!user) {
-            user = await this.userModel.findOne({ uid: uid });
-        }
-        if (!user) throw new Error('User not found');
+        try {
+            let user = await this.userModel.findOne({ clerkUserId: uid });
+            if (!user) {
+                user = await this.userModel.findOne({ uid: uid });
+            }
+            if (!user) throw new Error('User not found');
 
-        let accountId = user.stripeAccountId;
+            let accountId = user.stripeAccountId;
 
-        // 1. Create Connect Account if not exists
-        if (!accountId) {
-            const account = await stripe.accounts.create({
-                type: "express",
-                country: "US", // Defaulting to US for simplicity
-                email: user.email,
-                capabilities: {
-                    card_payments: { requested: true },
-                    transfers: { requested: true },
-                },
-                settings: {
-                    payouts: {
-                        schedule: {
-                            interval: "manual",
+            // 1. Create Connect Account if not exists
+            if (!accountId) {
+                const account = await stripe.accounts.create({
+                    type: "express",
+                    country: "SN", // Senegal (uses XOF)
+                    email: user.email,
+                    capabilities: {
+                        transfers: { requested: true },
+                    },
+                    settings: {
+                        payouts: {
+                            schedule: {
+                                interval: "manual",
+                            },
                         },
                     },
-                },
-                metadata: {
-                    uid: uid,
-                }
+                    metadata: {
+                        uid: uid,
+                    }
+                });
+                accountId = account.id;
+                user.stripeAccountId = accountId;
+                user.isStripeConnected = false;
+                await user.save();
+            }
+
+            // 2. Create Account Link for onboarding
+            const accountLink = await stripe.accountLinks.create({
+                account: accountId,
+                refresh_url: refreshUrl,
+                return_url: returnUrl,
+                type: "account_onboarding",
             });
-            accountId = account.id;
-            user.stripeAccountId = accountId;
-            user.isStripeConnected = false;
-            await user.save();
+
+            return {
+                url: accountLink.url,
+                stripeAccountId: accountId
+            };
+        } catch (error) {
+            console.error("Stripe Onboarding Error:", error);
+            // Throwing BadRequestException makes the error message visible to the frontend
+            throw new BadRequestException(`Stripe Connect Failed: ${error.message}`);
         }
-
-        // 2. Create Account Link for onboarding
-        const accountLink = await stripe.accountLinks.create({
-            account: accountId,
-            refresh_url: refreshUrl,
-            return_url: returnUrl,
-            type: "account_onboarding",
-        });
-
-        return {
-            url: accountLink.url,
-            stripeAccountId: accountId
-        };
     }
 
     async getAccountStatus(uid: string) {
