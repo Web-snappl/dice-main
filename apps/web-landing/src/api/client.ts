@@ -56,6 +56,7 @@ const apiClient = {
                 'Content-Type': 'application/json',
                 'Authorization': API_SECRET,
             },
+            cache: 'no-store',
         });
 
         if (!response.ok) {
@@ -73,6 +74,7 @@ const apiClient = {
                 'Content-Type': 'application/json',
                 'Authorization': API_SECRET,
             },
+            cache: 'no-store',
         });
 
         if (!response.ok) {

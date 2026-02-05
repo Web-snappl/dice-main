@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 // Make sure to put your publishable key here
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
-const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser }: { amount: number, clientSecret: string, onSuccess: () => void, refreshUser: () => Promise<void> }) => {
+const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser, updateUser, user }: { amount: number, clientSecret: string, onSuccess: () => void, refreshUser: () => Promise<void>, updateUser: (u: any) => void, user: any }) => {
     const stripe = useStripe();
     const elements = useElements();
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -43,15 +43,25 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser }: { amount
             setErrorMessage(error.message ?? 'An unknown error occurred');
             setIsProcessing(false);
         } else {
-            // Successful payment - refresh user data to get updated balance
+            // Successful payment - Optimistic Update
             toast.success(`Successfully deposited $${amount}`);
 
-            // Wait a moment for webhook to process, then refresh balance
-            setTimeout(async () => {
+            // 1. Optimistic local update (Instant feedback)
+            updateUser({ balance: (Number(user?.balance) || 0) + Number(amount) });
+
+            // 2. Poll server for real update (every 2s for 20s) to catch webhook processing
+            let attempts = 0;
+            const maxAttempts = 10;
+            const interval = setInterval(async () => {
+                attempts++;
                 await refreshUser();
-                onSuccess();
-                setIsProcessing(false);
-            }, 1500);
+                if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                }
+            }, 2000);
+
+            onSuccess();
+            setIsProcessing(false);
         }
     };
 
@@ -67,7 +77,7 @@ const CheckoutForm = ({ amount, clientSecret, onSuccess, refreshUser }: { amount
 };
 
 export default function PaymentModal({ children, onSuccess }: { children: React.ReactNode, onSuccess?: () => void }) {
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, updateUser } = useAuth();
     const [amount, setAmount] = useState('');
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -150,7 +160,10 @@ export default function PaymentModal({ children, onSuccess }: { children: React.
                                 setIsOpen(false);
                                 onSuccess?.();
                             }}
+
                             refreshUser={refreshUser}
+                            updateUser={updateUser}
+                            user={user}
                         />
                     </Elements>
                 )}
