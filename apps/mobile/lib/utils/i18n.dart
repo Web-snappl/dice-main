@@ -104,6 +104,9 @@ class I18n {
       'Deposit': 'Deposit',
       'Withdraw': 'Withdraw',
       'Deposit Caps': 'DEPOSIT',
+      'Mtn Deposit Success': 'Payment request sent. Please check your phone.',
+      'Mtn Withdraw Success': 'Withdrawal initiated successfully',
+      'Mtn Error Generic': 'An error occurred. Please try again.',
       
       // Home
       'Pro Member': 'Pro Member',
@@ -279,6 +282,9 @@ class I18n {
       'Card Number': 'Numéro de Carte',
       'Mobile Number': 'Numéro Mobile',
       'Deposit Caps': 'DÉPÔT',
+      'Mtn Deposit Success': 'Demande de paiement envoyée. Veuillez vérifier votre téléphone.',
+      'Mtn Withdraw Success': 'Retrait initié avec succès',
+      'Mtn Error Generic': 'Une erreur est survenue. Veuillez réessayer.',
       
       // Home
       'Pro Member': 'Membre Pro',

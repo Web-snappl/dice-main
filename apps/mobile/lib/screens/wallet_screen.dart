@@ -220,7 +220,7 @@ class WalletScreen extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(t('Check your phone to approve the transaction')),
+                  content: Text(t('Mtn Deposit Success')),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -229,7 +229,7 @@ class WalletScreen extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  content: Text(t('Mtn Error Generic')),
                   backgroundColor: AppColors.danger,
                 ),
               );
@@ -256,7 +256,7 @@ class WalletScreen extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(t('Withdrawal initiated successfully')),
+                  content: Text(t('Mtn Withdraw Success')),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -265,7 +265,7 @@ class WalletScreen extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  content: Text(t('Mtn Error Generic')),
                   backgroundColor: AppColors.danger,
                 ),
               );

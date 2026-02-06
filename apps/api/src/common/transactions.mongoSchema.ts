@@ -28,6 +28,9 @@ export class Transaction extends Document {
     accountNumber: string;
 
     @Prop({ required: false })
+    referenceId: string; // External Reference ID (MTN UUID, Stripe PI ID)
+
+    @Prop({ required: false })
     adminNote: string;
 }
 

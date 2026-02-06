@@ -1,6 +1,7 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { TransactionsService } from '../transactions/transactions.service';
 
 @Injectable()
 export class MtnService {
@@ -19,16 +20,29 @@ export class MtnService {
     private readonly disApiKey = '94e2cfddfe3245d7b0702af020027fb1';
     private readonly disSubKey = '8cc32bf49a0b4c2f9fa80785ad634962';
 
-    constructor() { }
+    constructor(
+        private readonly transactionsService: TransactionsService,
+    ) { }
 
     /**
      * Request a Deposit (Collection)
      */
-    async requestDeposit(userPhone: string, amount: number) {
+    async requestDeposit(userId: string, userPhone: string, amount: number) {
         try {
             this.logger.log(`Initiating MTN Deposit: ${amount} XOF from ${userPhone} (Sandbox: EUR)`);
             const token = await this.getToken('collection');
             const referenceId = uuidv4();
+
+            // Create Pending Transaction
+            await this.transactionsService.create({
+                userId,
+                type: 'DEPOSIT',
+                amount,
+                status: 'PENDING',
+                method: 'MTN',
+                referenceId,
+                adminNote: `Phone: ${userPhone}`
+            });
 
             await axios.post(
                 `${this.baseUrl}/collection/v1_0/requesttopay`,
@@ -48,7 +62,8 @@ export class MtnService {
                         'Authorization': `Bearer ${token}`,
                         'X-Reference-Id': referenceId,
                         'X-Target-Environment': 'sandbox',
-                        'Ocp-Apim-Subscription-Key': this.colSubKey
+                        'Ocp-Apim-Subscription-Key': this.colSubKey,
+                        'X-Callback-Url': 'https://api-production-6de9.up.railway.app/api/mtn/webhook'
                     }
                 }
             );
@@ -70,11 +85,22 @@ export class MtnService {
     /**
      * Request a Withdrawal (Disbursement)
      */
-    async requestWithdrawal(userPhone: string, amount: number) {
+    async requestWithdrawal(userId: string, userPhone: string, amount: number) {
         try {
             this.logger.log(`Initiating MTN Withdrawal: ${amount} XOF to ${userPhone} (Sandbox: EUR)`);
             const token = await this.getToken('disbursement');
             const referenceId = uuidv4();
+
+            // Create Pending Withdrawal
+            await this.transactionsService.create({
+                userId,
+                type: 'WITHDRAWAL',
+                amount,
+                status: 'PENDING', // Will be updated by Webhook or manually
+                method: 'MTN',
+                referenceId,
+                adminNote: `Phone: ${userPhone}`
+            });
 
             await axios.post(
                 `${this.baseUrl}/disbursement/v1_0/transfer`,
@@ -100,7 +126,7 @@ export class MtnService {
             );
 
             return {
-                status: 'SUCCESS',
+                status: 'SUCCESS', // Initiated successfully
                 message: 'Withdrawal initiated successfully',
                 referenceId
             };

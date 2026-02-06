@@ -11,6 +11,7 @@ export interface CreateTransactionDto {
     status: string;
     method?: string;
     accountNumber?: string;
+    referenceId?: string;
     adminNote?: string;
 }
 
@@ -27,6 +28,10 @@ export class TransactionsService {
 
     async findByUser(userId: string): Promise<Transaction[]> {
         return this.transactionModel.find({ userId }).sort({ timestamp: -1 }).exec();
+    }
+
+    async findByReferenceId(referenceId: string): Promise<Transaction | null> {
+        return this.transactionModel.findOne({ referenceId }).exec();
     }
 
     async findAll(): Promise<Transaction[]> {
