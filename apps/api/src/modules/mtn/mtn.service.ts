@@ -11,8 +11,9 @@ export class MtnService {
     private readonly baseUrl = 'https://sandbox.momodeveloper.mtn.com';
 
     // Collection Credentials
-    private readonly colUserId = '94da30e2-8dcb-48c9-a5f9-9ca1f64c3baa';
-    private readonly colApiKey = '1c2684c644374403b80fd8af78480b26';
+    // Collection Credentials
+    private readonly colUserId = '865709a6-eef2-4fbd-9c0b-9cc53b998cc5';
+    private readonly colApiKey = 'd2345adb2994471f8c41306037976a6d';
     private readonly colSubKey = 'b338f39aef1a42aba70089f01c9739c0';
 
     // Disbursement Credentials
