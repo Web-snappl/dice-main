@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -60,7 +60,10 @@ export class MtnService {
             };
         } catch (error) {
             this.logger.error(`Deposit Failed: ${error.message}`, error.response?.data);
-            throw new Error(`MTN Deposit Failed: ${error.response?.data?.message || error.message}`);
+            throw new HttpException(
+                `MTN Deposit Failed: ${error.response?.data?.message || error.message}`,
+                HttpStatus.BAD_REQUEST
+            );
         }
     }
 
@@ -103,7 +106,10 @@ export class MtnService {
             };
         } catch (error) {
             this.logger.error(`Withdrawal Failed: ${error.message}`, error.response?.data);
-            throw new Error(`MTN Withdrawal Failed: ${error.response?.data?.message || error.message}`);
+            throw new HttpException(
+                `MTN Withdrawal Failed: ${error.response?.data?.message || error.message}`,
+                HttpStatus.BAD_REQUEST
+            );
         }
     }
 
@@ -132,7 +138,10 @@ export class MtnService {
             return response.data.access_token;
         } catch (error) {
             this.logger.error(`Token Generation Failed (${product}): ${error.message}`, error.response?.data);
-            throw new Error('Failed to authenticate with MTN');
+            throw new HttpException(
+                `MTN Auth Failed: ${error.response?.data?.message || error.message}`,
+                HttpStatus.BAD_GATEWAY
+            );
         }
     }
 }
