@@ -57,7 +57,13 @@ export class MtnService {
                     },
                     payerMessage: 'Deposit to Dice App',
                     payeeNote: 'Deposit'
-                },
+                };
+
+            this.logger.log(`[MTN Request] Payload: ${JSON.stringify(payload)}`);
+
+            await axios.post(
+                `${this.baseUrl}/collection/v1_0/requesttopay`,
+                payload,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -75,6 +81,8 @@ export class MtnService {
                 referenceId
             };
         } catch (error) {
+            this.logger.error(`[MTN Error] Status: ${error.response?.status}`);
+            this.logger.error(`[MTN Error] Data: ${JSON.stringify(error.response?.data)}`);
             this.logger.error(`Deposit Failed: ${error.message}`, error.response?.data);
             throw new HttpException(
                 `MTN Deposit Failed: ${error.response?.data?.message || error.message}`,
