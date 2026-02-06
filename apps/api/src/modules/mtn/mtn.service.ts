@@ -10,13 +10,13 @@ export class MtnService {
     private readonly baseUrl = 'https://sandbox.momodeveloper.mtn.com';
 
     // Collection Credentials
-    private readonly colUserId = '56d0b986-b297-4e15-9a94-9e1befb2494c';
-    private readonly colApiKey = '31ccd8259ce3486295171291ea576dbe';
+    private readonly colUserId = '94da30e2-8dcb-48c9-a5f9-9ca1f64c3baa';
+    private readonly colApiKey = '1c2684c644374403b80fd8af78480b26';
     private readonly colSubKey = 'b338f39aef1a42aba70089f01c9739c0';
 
     // Disbursement Credentials
-    private readonly disUserId = '8307c5c3-d27b-46d8-816b-4d88c42b5c4e';
-    private readonly disApiKey = '92b789c41f9145e1a9d7bdbbc6191d8f';
+    private readonly disUserId = '5f74a2c1-65a4-496b-89e1-174c285b1e91';
+    private readonly disApiKey = '94e2cfddfe3245d7b0702af020027fb1';
     private readonly disSubKey = '8cc32bf49a0b4c2f9fa80785ad634962';
 
     constructor() { }
@@ -26,7 +26,7 @@ export class MtnService {
      */
     async requestDeposit(userPhone: string, amount: number) {
         try {
-            this.logger.log(`Initiating MTN Deposit: ${amount} XOF from ${userPhone}`);
+            this.logger.log(`Initiating MTN Deposit: ${amount} XOF from ${userPhone} (Sandbox: EUR)`);
             const token = await this.getToken('collection');
             const referenceId = uuidv4();
 
@@ -34,7 +34,7 @@ export class MtnService {
                 `${this.baseUrl}/collection/v1_0/requesttopay`,
                 {
                     amount: amount.toString(),
-                    currency: 'XOF',
+                    currency: 'EUR', // Sandbox only supports EUR
                     externalId: referenceId,
                     payer: {
                         partyIdType: 'MSISDN',
@@ -72,7 +72,7 @@ export class MtnService {
      */
     async requestWithdrawal(userPhone: string, amount: number) {
         try {
-            this.logger.log(`Initiating MTN Withdrawal: ${amount} XOF to ${userPhone}`);
+            this.logger.log(`Initiating MTN Withdrawal: ${amount} XOF to ${userPhone} (Sandbox: EUR)`);
             const token = await this.getToken('disbursement');
             const referenceId = uuidv4();
 
@@ -80,7 +80,7 @@ export class MtnService {
                 `${this.baseUrl}/disbursement/v1_0/transfer`,
                 {
                     amount: amount.toString(),
-                    currency: 'XOF',
+                    currency: 'EUR', // Sandbox only supports EUR
                     externalId: referenceId,
                     payee: {
                         partyIdType: 'MSISDN',
