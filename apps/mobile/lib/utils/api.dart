@@ -395,21 +395,40 @@ class AdminApi {
     );
   }
 
-  static Future<List<dynamic>> getWithdrawalHistory() async {
-    final baseUrl = await ApiClient.getBaseUrl();
-    try {
-      final response = await ApiClient.fetchFromBackend(
-        '$baseUrl/api/admin/withdrawHistory',
-        null,
-        null,
-        'GET',
-        requiresAuth: true,
-      );
+}
 
-      return response as List<dynamic>;
-    } catch (e) {
-      ApiClient._log('Withdrawal History API failed: $e');
-      return [];
-    }
+class WalletApi {
+  static Future<Map<String, dynamic>> initiateDeposit({
+    required String phone,
+    required double amount,
+  }) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    return await ApiClient.fetchFromBackend(
+      '$baseUrl/api/mtn/deposit',
+      null,
+      json.encode({
+        'phone': phone,
+        'amount': amount,
+      }),
+      'POST',
+      requiresAuth: true,
+    );
+  }
+
+  static Future<Map<String, dynamic>> initiateWithdrawal({
+    required String phone,
+    required double amount,
+  }) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    return await ApiClient.fetchFromBackend(
+      '$baseUrl/api/mtn/withdraw',
+      null,
+      json.encode({
+        'phone': phone,
+        'amount': amount,
+      }),
+      'POST',
+      requiresAuth: true,
+    );
   }
 }

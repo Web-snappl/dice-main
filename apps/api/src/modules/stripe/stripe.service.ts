@@ -36,7 +36,7 @@ export class StripeService {
             if (!accountId) {
                 const account = await stripe.accounts.create({
                     type: "express",
-                    country: "SN", // Senegal (uses XOF)
+                    country: "US", // Reverting to US as SN is not supported for Express
                     email: user.email,
                     capabilities: {
                         transfers: { requested: true },

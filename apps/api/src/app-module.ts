@@ -12,6 +12,7 @@ import { DepositsModule } from './modules/deposits/deposits.module';
 import { AdminModule } from './admin/admin.module';
 import { StripeModule } from './modules/stripe/stripe.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { MtnModule } from './modules/mtn/mtn.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     AdminModule, // Admin Panel Module
     StripeModule,
     TransactionsModule,
+    MtnModule,
   ],
 
 })

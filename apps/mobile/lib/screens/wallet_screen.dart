@@ -4,6 +4,7 @@ import '../utils/i18n.dart';
 import '../utils/app_theme.dart';
 import '../widgets/app_button.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/api.dart';
 
 class WalletScreen extends StatelessWidget {
   final User user;
@@ -120,7 +121,7 @@ class WalletScreen extends StatelessWidget {
                         child: AppButton(
                           variant: ButtonVariant.primary,
                           fullWidth: true,
-                          onPressed: () => _openWebWallet(context),
+                          onPressed: () => _showDepositSheet(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
@@ -142,7 +143,7 @@ class WalletScreen extends StatelessWidget {
                         child: AppButton(
                           variant: ButtonVariant.secondary,
                           fullWidth: true,
-                          onPressed: () => _openWebWallet(context),
+                          onPressed: () => _showWithdrawSheet(context),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
@@ -203,30 +204,78 @@ class WalletScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openWebWallet(BuildContext context) async {
-    const url = 'https://dice-main-production.up.railway.app/dashboard/wallet';
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.surface,
-            title: Text(t('Error'), style: AppTextStyles.title()),
-            content: Text(t('Could not open web wallet'), style: AppTextStyles.body()),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('OK', style: TextStyle(color: AppColors.primary)),
-              ),
-            ],
-          ),
-        );
-      }
-    }
+  void _showDepositSheet(BuildContext context) {
+    if (user.wallet.balance > 0) {} // placeholder logic
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PaymentSheet(
+        title: t('Deposit with MTN MoMo'),
+        buttonText: t('Deposit'),
+        onSubmit: (phone, amount) async {
+          Navigator.pop(ctx);
+          try {
+            await WalletApi.initiateDeposit(phone: phone, amount: amount);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(t('Check your phone to approve the transaction')),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  backgroundColor: AppColors.danger,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
+
+  void _showWithdrawSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PaymentSheet(
+        title: t('Withdraw to MTN MoMo'),
+        buttonText: t('Withdraw'),
+        isWithdraw: true,
+        onSubmit: (phone, amount) async {
+          Navigator.pop(ctx);
+          try {
+            await WalletApi.initiateWithdrawal(phone: phone, amount: amount);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(t('Withdrawal initiated successfully')),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                  backgroundColor: AppColors.danger,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
 
   Widget _buildTransactionItem(Transaction tx) {
     final isDeposit = tx.type == TransactionType.deposit;
@@ -283,6 +332,115 @@ class WalletScreen extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isDeposit ? AppColors.success : AppColors.danger,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentSheet extends StatefulWidget {
+  final String title;
+  final String buttonText;
+  final bool isWithdraw;
+  final Function(String phone, double amount) onSubmit;
+
+  const _PaymentSheet({
+    required this.title,
+    required this.buttonText,
+    required this.onSubmit,
+    this.isWithdraw = false,
+  });
+
+  @override
+  State<_PaymentSheet> createState() => _PaymentSheetState();
+}
+
+class _PaymentSheetState extends State<_PaymentSheet> {
+  final _amountController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.title,
+                style: AppTextStyles.title(fontSize: 20),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: AppColors.textMuted),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _amountController,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Amount (CFA)',
+              labelStyle: const TextStyle(color: AppColors.textMuted),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: AppColors.primary),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Phone Number (e.g. 229...)',
+              labelStyle: const TextStyle(color: AppColors.textMuted),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: AppColors.primary),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          AppButton(
+            variant: widget.isWithdraw ? ButtonVariant.secondary : ButtonVariant.primary,
+            onPressed: _isLoading ? null : () {
+              final amount = double.tryParse(_amountController.text);
+              final phone = _phoneController.text.trim();
+              if (amount != null && phone.isNotEmpty) {
+                widget.onSubmit(phone, amount);
+              }
+            },
+            child: _isLoading 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(widget.buttonText),
           ),
         ],
       ),
