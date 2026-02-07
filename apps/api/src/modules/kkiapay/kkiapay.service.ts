@@ -287,7 +287,7 @@ export class KkiapayService {
                     },
                 },
             );
-            throw new InternalServerErrorException('Failed to credit user account');
+            throw new InternalServerErrorException(`Failed to credit user account: ${error.message}`);
         } finally {
             await session.endSession();
         }
