@@ -16,8 +16,8 @@ export class GameHistoryModel extends Document {
     @Prop({ required: true })
     winner: boolean
 
-    @Prop({ required: true })
-    winsAgainst: number
+    @Prop({ required: true, type: [String] })
+    winsAgainst: string[]
 
     @Prop({ required: false })
     dice1: number
