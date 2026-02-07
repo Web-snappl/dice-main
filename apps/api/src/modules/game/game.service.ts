@@ -76,6 +76,12 @@ export class GameService {
         if (userList.length < 2) throw new BadRequestException({ message: 'user list length is less than 2' })
         const gameId = this.resolveGameId(userList as any[]);
         const config = await this.getValidatedGameConfig(gameId, userList as any[]);
+
+        // Route to specialized handler for Dice Table
+        if (gameId === 'dice_table') {
+            return this.handleDiceTable(userList, config, gameId);
+        }
+
         let winList: UserList = []
 
         if (userList.length === 2) {
@@ -114,6 +120,80 @@ export class GameService {
         }
         return userList
 
+    }
+
+    async handleDiceTable(userList: UserList, config: GameConfig, gameId: string) {
+        const diceResult = getRandomInt(1, 6);
+        const commissionPercent = this.normalizeCommissionPercent(config.commissionRate);
+        const commissionRate = commissionPercent / 100;
+        const payoutMultiplier = this.normalizePositiveNumber(config.payoutMultiplier, 5);
+
+        for (const user of userList) {
+            if (this.isBotUser(user)) {
+                // Bots just need the result
+                user.rollDiceResult = diceResult;
+                user.dice1 = diceResult;
+                continue;
+            }
+
+            const totalBet = Number(user.betAmount || 0);
+            if (!Number.isFinite(totalBet) || totalBet <= 0) {
+                continue; // Skip invalid bets
+            }
+
+            const bets = user.bets || {};
+            let isWinner = false;
+            let winnings = 0;
+
+            // RULE: If result is 1, House Wins. Payout is 0.
+            if (diceResult !== 1) {
+                const winningBet = Number(bets[diceResult.toString()] || 0);
+                if (winningBet > 0) {
+                    isWinner = true;
+                    const grossWin = winningBet * payoutMultiplier;
+                    const fee = grossWin * commissionRate;
+                    winnings = grossWin - fee;
+                }
+            }
+
+            const balanceChange = winnings - totalBet;
+
+            try {
+                const result = await this.persistentUserModel.findByIdAndUpdate(
+                    user.uid,
+                    { $inc: { balance: balanceChange } },
+                    { new: true }
+                );
+
+                console.log(
+                    `[DiceTable] User ${user.uid}: Rolled ${diceResult}. Bet on target: ${bets[diceResult.toString()] ?? 0}. Result: ${isWinner ? 'WIN' : 'LOSS'}. Net Change: ${balanceChange}. New Balance: ${result?.balance ?? 'unknown'}`,
+                );
+
+            } catch (error) {
+                console.error(`[DiceTable] Failed to update balance for ${user.uid}:`, error);
+            }
+
+            // Update user object for response
+            user.winner = isWinner;
+            user.rollDiceResult = diceResult;
+            user.dice1 = diceResult;
+            user.dice2 = 0; // Not used
+        }
+
+        // Save history (generic method might need adjustment or we just assume winner=true is enough)
+        // Check addToHistory logic: it filters for `winner === true`.
+        // If no one wins (House wins), addToHistory might skip or warn. 
+        // We should probably ensure at least one entry is flagged or just handle it.
+        // For Dice Table, history is per user usually, but here invalid winners might be dropped.
+        // Let's rely on standard history for now, knowing House Wins might not show as a "User Win" in history, which is technically correct.
+
+        // Actually, let's make sure we don't crash addToHistory if no winner.
+        // addToHistory: `const mono = list.filter((i) => i.winner === true); const winner = mono[0]...`
+        // If house wins (1), list has no winners. `winner` is undefined. `addToHistory` returns early with warning.
+        // This is acceptable for now.
+        await this.addToHistory(userList);
+
+        return userList;
     }
 
 
