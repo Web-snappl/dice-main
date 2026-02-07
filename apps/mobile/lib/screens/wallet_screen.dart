@@ -286,7 +286,7 @@ class WalletScreen extends StatelessWidget {
           Navigator.pop(ctx);
           String referenceId = '';
           var useSandbox = AppConfig.kkiapaySandbox;
-          var useApiKey = AppConfig.kkiapayApiKey;
+          var useApiKey = '';
           var useAmount = amount.toInt();
 
           try {
@@ -299,16 +299,21 @@ class WalletScreen extends StatelessWidget {
               throw Exception('Missing deposit reference from backend');
             }
             final kkiapayConfig = intent['kkiapay'];
-            if (kkiapayConfig is Map<String, dynamic>) {
-              final backendSandbox = kkiapayConfig['sandbox'];
-              final backendPublicKey = kkiapayConfig['publicKey']?.toString();
-              if (backendSandbox is bool) {
-                useSandbox = backendSandbox;
-              }
-              if (backendPublicKey != null && backendPublicKey.isNotEmpty) {
-                useApiKey = backendPublicKey;
-              }
+            if (kkiapayConfig is! Map) {
+              throw Exception('Missing Kkiapay configuration from backend');
             }
+
+            final configMap = Map<String, dynamic>.from(kkiapayConfig);
+            final backendSandbox = configMap['sandbox'];
+            final backendPublicKey = configMap['publicKey']?.toString();
+            if (backendSandbox is bool) {
+              useSandbox = backendSandbox;
+            }
+            if (backendPublicKey == null || backendPublicKey.isEmpty) {
+              throw Exception('Missing Kkiapay public key on backend');
+            }
+            useApiKey = backendPublicKey;
+
             final backendAmount = intent['amount'];
             if (backendAmount is num && backendAmount > 0) {
               useAmount = backendAmount.toInt();
@@ -354,6 +359,26 @@ class WalletScreen extends StatelessWidget {
 
                   if (status == 'PAYMENT_SUCCESS') {
                     if (txId.isEmpty) {
+                      final settled = await _waitForDepositSettlement(
+                        referenceId: referenceId,
+                      );
+                      if (settled) {
+                        try {
+                          final userData = await AuthApi.getMe();
+                          setUser(User.fromJson(userData));
+                        } catch (_) {}
+
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(t('Deposit Successful')),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(t('Verification Failed')),

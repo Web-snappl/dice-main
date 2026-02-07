@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +6,7 @@ import '../models/types.dart';
 import '../utils/api.dart';
 import '../utils/secure_storage.dart';
 
-class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
+class AppProvider extends ChangeNotifier {
   Screen _currentScreen = Screen.login;
   bool _isAuthenticated = false;
   bool _isAdmin = false;
@@ -24,7 +23,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<User> _registeredUsers = [];
   List<GameRecord> _history = [];
   List<Transaction> _transactions = [];
-  Timer? _balanceRefreshTimer;
 
   Screen get currentScreen => _currentScreen;
   bool get isAuthenticated => _isAuthenticated;
@@ -42,7 +40,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Transaction> get transactions => _transactions;
 
   Future<void> initialize() async {
-    WidgetsBinding.instance.addObserver(this);
     // Just load local data and proceed immediately to prevent black screen blocking
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -82,16 +79,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
       
       // Try to get current user from API with stored token
       final userData = await AuthApi.getMe();
-      if (userData != null) {
-        final user = _mapApiUserToState(userData);
-        _currentUser = user;
-        _isAuthenticated = true;
-        _isAdmin = user.role == UserRole.admin;
-        _currentScreen = _isAdmin ? Screen.admin : Screen.home;
-        debugPrint('✅ Session restored for: ${user.name}');
-        debugPrint('💰 Balance from API: ${user.wallet.balance}');
-        _startBalanceRefreshTimer();
-      }
+      final user = _mapApiUserToState(userData);
+      _currentUser = user;
+      _isAuthenticated = true;
+      _isAdmin = user.role == UserRole.admin;
+      _currentScreen = _isAdmin ? Screen.admin : Screen.home;
+      debugPrint('✅ Session restored for: ${user.name}');
+      debugPrint('💰 Balance from API: ${user.wallet.balance}');
     } catch (e) {
       debugPrint('⚠️ Session restore failed: $e');
       // Clear invalid tokens
@@ -106,35 +100,12 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       debugPrint('🔄 Refreshing balance from API...');
       final userData = await AuthApi.getMe();
-      if (userData != null) {
-        final user = _mapApiUserToState(userData);
-        _currentUser = user;
-        debugPrint('💰 Balance updated: ${user.wallet.balance}');
-        notifyListeners();
-      }
+      final user = _mapApiUserToState(userData);
+      _currentUser = user;
+      debugPrint('💰 Balance updated: ${user.wallet.balance}');
+      notifyListeners();
     } catch (e) {
       debugPrint('⚠️ Balance refresh failed: $e');
-    }
-  }
-
-  Future<void> _loadPersistedData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _language = prefs.getString('app_language') ?? 'Français';
-      
-      final usersJson = prefs.getString('app_users_v3');
-      if (usersJson != null) {
-        final List<dynamic> decoded = json.decode(usersJson);
-        _registeredUsers = decoded.map((item) => User.fromJson(item)).toList();
-      }
-      
-      final transactionsJson = prefs.getString('app_transactions');
-      if (transactionsJson != null) {
-        final List<dynamic> decoded = json.decode(transactionsJson);
-        _transactions = decoded.map((item) => Transaction.fromJson(item)).toList();
-      }
-    } catch (e) {
-      debugPrint('Error loading persisted data: $e');
     }
   }
 
@@ -219,7 +190,7 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
         try {
           debugPrint('🌐 Attempting API login...');
           final response = await AuthApi.login(identifier, password);
-          final userData = response['data'] ?? response;
+          final userData = await _resolveAuthenticatedUser(response);
           
           debugPrint('📦 API Response received: ${userData != null ? "SUCCESS" : "NULL"}');
           
@@ -259,7 +230,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
             setScreen(_isAdmin ? Screen.admin : Screen.home);
             
             debugPrint('✅ LOGIN SUCCESSFUL!');
-            _startBalanceRefreshTimer();
             return true;
           }
         } catch (e) {
@@ -310,14 +280,13 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
           phone: userData['phone'],
         );
         
-        final apiUser = response['data'] ?? response;
+        final apiUser = await _resolveAuthenticatedUser(response);
         if (apiUser != null) {
           final user = _mapApiUserToState(apiUser);
           setCurrentUser(user);
           _isAuthenticated = true;
           _isAdmin = user.role == UserRole.admin;
           setScreen(_isAdmin ? Screen.admin : Screen.home);
-          _startBalanceRefreshTimer();
           return true;
         }
       }
@@ -336,9 +305,16 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   User _mapApiUserToState(Map<String, dynamic> apiData) {
+    final firstName = (apiData['firstName'] ?? '').toString().trim();
+    final lastName = (apiData['lastName'] ?? '').toString().trim();
+    final combinedName = '$firstName $lastName'.trim();
+    final displayName = (apiData['displayName'] ?? apiData['name'] ?? '').toString().trim();
+
     return User(
       id: apiData['uid'] ?? apiData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      name: apiData['displayName'] ?? apiData['name'] ?? 'Unknown User',
+      name: displayName.isNotEmpty
+          ? displayName
+          : (combinedName.isNotEmpty ? combinedName : 'Unknown User'),
       email: apiData['email'] ?? '',
       phone: apiData['phone'] ?? apiData['phoneNumber'],
       wallet: apiData['wallet'] != null
@@ -366,6 +342,43 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
               lastWithdrawalDate: DateTime.now().toIso8601String(),
             ),
     );
+  }
+
+  Future<Map<String, dynamic>?> _resolveAuthenticatedUser(Map<String, dynamic> authResponse) async {
+    // Canonical source of truth after auth is /auth/me.
+    try {
+      final me = await AuthApi.getMe();
+      if (me.isNotEmpty) {
+        return me;
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to fetch /auth/me after auth, using auth payload fallback: $e');
+    }
+
+    final directUser = authResponse['user'];
+    if (directUser is Map<String, dynamic>) {
+      return directUser;
+    }
+    if (directUser is Map) {
+      return Map<String, dynamic>.from(directUser);
+    }
+
+    final nested = authResponse['data'];
+    if (nested is Map<String, dynamic>) {
+      final nestedUser = nested['user'];
+      if (nestedUser is Map<String, dynamic>) {
+        return nestedUser;
+      }
+      if (nestedUser is Map) {
+        return Map<String, dynamic>.from(nestedUser);
+      }
+      return nested;
+    }
+    if (nested is Map) {
+      return Map<String, dynamic>.from(nested);
+    }
+
+    return authResponse;
   }
 
   void addHistory(GameRecord record) {
@@ -407,7 +420,6 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
-    _stopBalanceRefreshTimer();
     // Clear tokens from secure storage
     await AuthApi.logout();
     _isAuthenticated = false;
@@ -415,52 +427,5 @@ class AppProvider extends ChangeNotifier with WidgetsBindingObserver {
     _currentUser = null;
     setScreen(Screen.login);
   }
-  
-  void _startBalanceRefreshTimer() {
-    _balanceRefreshTimer?.cancel();
-    _balanceRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (_isAuthenticated && _isOnline) {
-        refreshBalance();
-      } else {
-        timer.cancel();
-      }
-    });
-  }
 
-  void _stopBalanceRefreshTimer() {
-    _balanceRefreshTimer?.cancel();
-    _balanceRefreshTimer = null;
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      debugPrint('📱 App resumed - triggering balance refresh burst');
-      _startBurstPolling();
-    }
-  }
-
-  void _startBurstPolling() {
-    if (!_isAuthenticated || !_isOnline) return;
-    
-    // Immediate check
-    refreshBalance();
-    
-    // Check every 2 seconds for 20 seconds
-    int attempts = 0;
-    Timer.periodic(const Duration(seconds: 2), (timer) {
-      attempts++;
-      refreshBalance();
-      if (attempts >= 10) {
-        timer.cancel();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _stopBalanceRefreshTimer();
-    super.dispose();
-  }
 }

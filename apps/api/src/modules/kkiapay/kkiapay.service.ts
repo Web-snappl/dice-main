@@ -21,7 +21,8 @@ type ProviderVerificationPayload = Record<string, any>;
 @Injectable()
 export class KkiapayService {
     private readonly logger = new Logger(KkiapayService.name);
-    private readonly baseUrl = 'https://api.kkiapay.me/api/v1';
+    private readonly liveBaseUrl = 'https://api.kkiapay.me';
+    private readonly sandboxBaseUrl = 'https://api-sandbox.kkiapay.me';
 
     constructor(
         private readonly configService: ConfigService,
@@ -559,26 +560,47 @@ export class KkiapayService {
     }
 
     private async verifyTransactionWithProvider(transactionId: string): Promise<ProviderVerificationPayload> {
-        const apiKey = this.configService.get<string>('KKIAPAY_PRIVATE_KEY');
-        if (!apiKey) {
-            this.logger.error('KKIAPAY_PRIVATE_KEY is not configured');
+        const publicKey = this.configService.get<string>('KKIAPAY_PUBLIC_KEY');
+        const privateKey = this.configService.get<string>('KKIAPAY_PRIVATE_KEY');
+        const secretKey = this.configService.get<string>('KKIAPAY_SECRET_KEY');
+
+        if (!publicKey || !privateKey || !secretKey) {
+            this.logger.error('KKIAPAY_PUBLIC_KEY, KKIAPAY_PRIVATE_KEY and KKIAPAY_SECRET_KEY must be configured');
             throw new InternalServerErrorException('Payment provider is not configured');
         }
 
+        const isSandbox = this.configService.get<string>('KKIAPAY_SANDBOX') === 'true';
+        const baseUrl = isSandbox ? this.sandboxBaseUrl : this.liveBaseUrl;
+
         try {
-            const response = await axios.get(`${this.baseUrl}/transactions/${transactionId}`, {
+            const response = await axios.post(`${baseUrl}/api/v1/transactions/status`, {
+                transactionId,
+            }, {
                 headers: {
-                    'x-api-key': apiKey,
+                    'x-api-key': publicKey,
+                    'x-secret-key': secretKey,
+                    'x-private-key': privateKey,
                     Accept: 'application/json',
                 },
             });
-            this.logger.log(`Kkiapay verification response tx=${transactionId} status=${response.data?.status}`);
-            return response.data;
+            const data = response.data?.data ?? response.data;
+            this.logger.log(`Kkiapay verification response tx=${transactionId} status=${data?.status}`);
+            return data;
         } catch (error) {
+            const providerMessage = error.response?.data?.reason || error.response?.data?.message || error.response?.data?.status;
             this.logger.error(`Kkiapay verification failed for tx=${transactionId}: ${error.message}`, error.response?.data);
-            if (error.response?.status === 404) {
+
+            if (
+                error.response?.status === 404
+                || String(providerMessage || '').toUpperCase().includes('TRANSACTION_NOT_FOUND')
+            ) {
                 throw new BadRequestException('Transaction not found at Kkiapay');
             }
+
+            if (providerMessage) {
+                throw new BadRequestException(`Kkiapay verification rejected: ${providerMessage}`);
+            }
+
             throw new InternalServerErrorException('Failed to verify transaction with Kkiapay');
         }
     }

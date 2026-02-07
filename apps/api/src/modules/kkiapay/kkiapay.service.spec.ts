@@ -25,7 +25,9 @@ describe('KkiapayService', () => {
         configService = {
             get: jest.fn((key: string) => {
                 const values: Record<string, string> = {
+                    KKIAPAY_PUBLIC_KEY: 'public_test_key',
                     KKIAPAY_PRIVATE_KEY: 'private_test_key',
+                    KKIAPAY_SECRET_KEY: 'secret_test_key',
                     KKIAPAY_SANDBOX: 'true',
                     KKIAPAY_CURRENCY: 'XOF',
                     KKIAPAY_WEBHOOK_SECRET: 'webhook_test_secret',
@@ -93,7 +95,7 @@ describe('KkiapayService', () => {
             });
 
         userModel.findByIdAndUpdate.mockResolvedValue(updatedUser);
-        mockedAxios.get.mockResolvedValue({
+        mockedAxios.post.mockResolvedValue({
             data: {
                 status: 'SUCCESS',
                 amount: 1500,
@@ -143,7 +145,7 @@ describe('KkiapayService', () => {
 
         const result = await service.processDeposit('user_1', 'KKIA_TX_1', 'REF_1');
 
-        expect(mockedAxios.get).not.toHaveBeenCalled();
+        expect(mockedAxios.post).not.toHaveBeenCalled();
         expect(userModel.findByIdAndUpdate).not.toHaveBeenCalled();
         expect(result.message).toBe('Deposit already processed');
         expect(result.user.wallet.balance).toBe(5000);
@@ -162,7 +164,7 @@ describe('KkiapayService', () => {
         };
 
         transactionModel.findOne.mockResolvedValueOnce(intent);
-        mockedAxios.get.mockResolvedValue({
+        mockedAxios.post.mockResolvedValue({
             data: {
                 status: 'SUCCESS',
                 amount: 2000,
@@ -196,7 +198,7 @@ describe('KkiapayService', () => {
         transactionModel.findOne
             .mockResolvedValueOnce(intent)
             .mockResolvedValueOnce(duplicateSuccess);
-        mockedAxios.get.mockResolvedValue({
+        mockedAxios.post.mockResolvedValue({
             data: {
                 status: 'SUCCESS',
                 amount: 1000,
@@ -225,7 +227,7 @@ describe('KkiapayService', () => {
         transactionModel.findOne
             .mockResolvedValueOnce(intent)
             .mockResolvedValueOnce(null);
-        mockedAxios.get.mockResolvedValue({
+        mockedAxios.post.mockResolvedValue({
             data: {
                 status: 'SUCCESS',
                 amount: 1000,
