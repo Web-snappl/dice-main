@@ -29,7 +29,7 @@ export default function UserLayout() {
     ];
 
     const handleAndroidDownload = () => {
-        window.location.href = 'https://github.com/Web-snappl/dice-main/releases/download/v1.0.2/app-release.apk';
+        window.location.href = 'https://github.com/Web-snappl/dice-main/releases/tag/v.1.0.3#:~:text=3-,app%2Drelease.apk,-sha256%3A4bacbd87252a57b6f4ad233786549be4e5e5a1c644a08fc2f0dbda58b39f82cc';
     };
 
     const handleIOSClick = () => {
