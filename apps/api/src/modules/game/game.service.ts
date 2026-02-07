@@ -34,6 +34,10 @@ export class GameService {
     async addToHistory(list: any) {
         const mono = list.filter((i) => i.winner === true)
         const winner = mono[0] as any
+        if (!winner) {
+            console.warn('[GameService] addToHistory skipped: no winner in payload');
+            return;
+        }
 
         // Suspicious Detection Logic
         if (winner.rollDiceResult < 2 || winner.rollDiceResult > 12) {
@@ -61,7 +65,7 @@ export class GameService {
             user.dice2 = dice2
             return user
         })
-        const sortedList = _.sortBy(newUserList, 'rollDiceResult')
+        const sortedList = _.orderBy(newUserList, ['rollDiceResult'], ['desc'])
         sortedList[0].winner = true
         return sortedList
     }
@@ -70,6 +74,8 @@ export class GameService {
         if (!userList) throw new BadRequestException({ message: 'user list is undefined' })
         if (!userList.length) throw new BadRequestException({ message: 'user list length is 0' })
         if (userList.length < 2) throw new BadRequestException({ message: 'user list length is less than 2' })
+        const gameId = this.resolveGameId(userList as any[]);
+        const config = await this.getValidatedGameConfig(gameId, userList as any[]);
         let winList: UserList = []
 
         if (userList.length === 2) {
@@ -78,7 +84,7 @@ export class GameService {
             winList[0].winsAgainst = [against.uid]
 
             // Process Transaction for 2 players
-            await this.processGameTransactions(winList);
+            await this.processGameTransactions(winList, config, gameId);
 
             await this.addToHistory(userList)
             return winList
@@ -93,19 +99,15 @@ export class GameService {
                 return user
             })
 
-            userList.forEach((originalItem, index) => {
-                originalItem.winsAgainst = []
-                if (originalItem.uid === winnerUid && index > 0) {
-                    originalItem.winsAgainst.push(userList[index - 1].uid)
-                }
-
-                if (originalItem.uid === winnerUid && index <= userList.length - 1) {
-                    originalItem.winsAgainst.push(userList[index + 1].uid)
-                }
-            })
+            const winner = userList.find((u) => u.uid === winnerUid);
+            if (winner) {
+                winner.winsAgainst = userList
+                    .filter((u) => u.uid !== winnerUid)
+                    .map((u) => u.uid);
+            }
 
             // Process Transaction for multiple players
-            await this.processGameTransactions(userList);
+            await this.processGameTransactions(userList, config, gameId);
 
             await this.addToHistory(userList)
             return userList
@@ -141,24 +143,22 @@ export class GameService {
         return userList
     }
 
-    async processGameTransactions(userList: UserList) {
-        // Calculate total pot from all bets
-        const totalPot = userList.reduce((sum, u) => sum + (u.betAmount || 0), 0);
-        const commissionRate = 0.05; // 5% commission
-        const winnerPayout = totalPot * (1 - commissionRate);
-
-        console.log(`[GameService] Total Pot: ${totalPot}, Commission: ${totalPot * commissionRate}, Winner Payout: ${winnerPayout}`);
+    async processGameTransactions(userList: UserList, config: GameConfig, gameId: string) {
+        const commissionPercent = this.normalizeCommissionPercent(config.commissionRate);
+        const commissionRate = commissionPercent / 100;
+        const payoutMultiplier = this.normalizePositiveNumber(config.payoutMultiplier, 2);
 
         for (const user of userList) {
             // Skip bot opponents (non-MongoDB IDs)
-            const isBot = !user.uid || user.uid.startsWith('opponent_') || user.uid === 'dealer-bot';
+            const isBot = this.isBotUser(user as any);
             if (isBot) {
                 console.log(`[GameService] Skipping bot user: ${user.uid}`);
                 continue;
             }
 
             // Skip if no valid bet
-            if (!user.betAmount || user.betAmount <= 0) {
+            const betAmount = Number(user.betAmount || 0);
+            if (!Number.isFinite(betAmount) || betAmount <= 0) {
                 console.log(`[GameService] Skipping user ${user.uid}: no betAmount`);
                 continue;
             }
@@ -167,13 +167,18 @@ export class GameService {
             let balanceChange: number;
 
             if (isWinner) {
-                // Winner gets the pot minus commission, minus their original bet (net gain)
-                balanceChange = winnerPayout - user.betAmount;
-                console.log(`[GameService] Winner ${user.uid}: bet ${user.betAmount}, payout ${winnerPayout}, net change: ${balanceChange}`);
+                const grossPayout = betAmount * payoutMultiplier;
+                const fee = grossPayout * commissionRate;
+                const netPayout = grossPayout - fee;
+                // Winner balance change is net payout minus own stake.
+                balanceChange = netPayout - betAmount;
+                console.log(
+                    `[GameService] Winner ${user.uid}: game=${gameId} bet=${betAmount}, payoutMultiplier=${payoutMultiplier}, commission=${commissionPercent}%, netChange=${balanceChange}`,
+                );
             } else {
                 // Loser loses their bet
-                balanceChange = -user.betAmount;
-                console.log(`[GameService] Loser ${user.uid}: lost bet ${user.betAmount}`);
+                balanceChange = -betAmount;
+                console.log(`[GameService] Loser ${user.uid}: game=${gameId}, lost bet ${betAmount}`);
             }
 
             try {
@@ -208,15 +213,16 @@ export class GameService {
     }
 
     async updateGameConfig(gameId: string, data: Partial<GameConfig>) {
+        const normalized = this.normalizeGameConfigPatch(data);
         const config = await this.gameConfigModel.findOneAndUpdate(
             { gameId },
-            { $set: data },
+            { $set: normalized },
             { new: true }
         ).exec();
         if (!config) {
             throw new BadRequestException(`Game config not found: ${gameId}`);
         }
-        console.log(`[GameService] Updated config for ${gameId}:`, data);
+        console.log(`[GameService] Updated config for ${gameId}:`, normalized);
         return config;
     }
 
@@ -248,7 +254,7 @@ export class GameService {
                 maxBet: 50000,
                 minPlayers: 2,
                 maxPlayers: 6,
-                payoutMultiplier: 2,
+                payoutMultiplier: 5,
                 dailyBetLimit: null,
                 maintenanceMode: false,
                 maintenanceMessage: '',
@@ -266,5 +272,151 @@ export class GameService {
 
         console.log('[GameService] Seeded default game configs');
         return { message: 'Default configs seeded', count: defaultConfigs.length };
+    }
+
+    private resolveGameId(userList: any[]): string {
+        const explicitGameId = userList.find((u) => typeof u?.gameId === 'string')?.gameId?.trim();
+        if (explicitGameId) {
+            return explicitGameId;
+        }
+        if (userList.some((u) => u?.uid === 'dealer-bot')) {
+            return 'dice_table';
+        }
+        return 'dice_duel';
+    }
+
+    private async getValidatedGameConfig(gameId: string, userList: any[]): Promise<GameConfigDocument> {
+        let config = await this.gameConfigModel.findOne({ gameId }).exec();
+        if (!config) {
+            await this.seedDefaultConfigs();
+            config = await this.gameConfigModel.findOne({ gameId }).exec();
+        }
+        if (!config) {
+            throw new BadRequestException(`Game config not found: ${gameId}`);
+        }
+
+        if (!config.isActive) {
+            throw new BadRequestException(`Game "${config.name}" is currently disabled`);
+        }
+        if (config.maintenanceMode) {
+            throw new BadRequestException(config.maintenanceMessage || `${config.name} is in maintenance mode`);
+        }
+
+        const minPlayers = this.normalizePositiveNumber(config.minPlayers, 2);
+        const maxPlayers = this.normalizePositiveNumber(config.maxPlayers, minPlayers);
+        if (userList.length < minPlayers || userList.length > maxPlayers) {
+            throw new BadRequestException(
+                `Invalid player count for ${config.name}. Required: ${minPlayers}-${maxPlayers}, got: ${userList.length}`,
+            );
+        }
+
+        const minBet = this.normalizePositiveNumber(config.minBet, 1);
+        const maxBet = this.normalizePositiveNumber(config.maxBet, minBet);
+        const dailyBetLimit = config.dailyBetLimit == null
+            ? null
+            : this.normalizePositiveNumber(config.dailyBetLimit, 0);
+
+        for (const user of userList) {
+            if (this.isBotUser(user)) {
+                continue;
+            }
+
+            const betAmount = Number(user.betAmount || 0);
+            if (!Number.isFinite(betAmount) || betAmount <= 0) {
+                throw new BadRequestException(`Invalid bet amount for user ${user.uid}`);
+            }
+            if (betAmount < minBet) {
+                throw new BadRequestException(`Minimum bet for ${config.name} is ${minBet}`);
+            }
+            if (betAmount > maxBet) {
+                throw new BadRequestException(`Maximum bet for ${config.name} is ${maxBet}`);
+            }
+            if (dailyBetLimit != null && betAmount > dailyBetLimit) {
+                throw new BadRequestException(`Daily limit exceeded for ${config.name}. Limit: ${dailyBetLimit}`);
+            }
+        }
+
+        return config;
+    }
+
+    private isBotUser(user: any): boolean {
+        return !user?.uid || user.uid.startsWith('opponent_') || user.uid === 'dealer-bot';
+    }
+
+    private normalizeCommissionPercent(value: number): number {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            return 0;
+        }
+        if (numeric > 95) {
+            return 95;
+        }
+        return numeric;
+    }
+
+    private normalizePositiveNumber(value: number, fallback: number): number {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            return fallback;
+        }
+        return numeric;
+    }
+
+    private normalizeGameConfigPatch(data: Partial<GameConfig>): Partial<GameConfig> {
+        const patch: Record<string, any> = {};
+
+        if (data.name !== undefined) patch.name = data.name;
+        if (data.description !== undefined) patch.description = data.description;
+        if (data.isActive !== undefined) patch.isActive = data.isActive;
+        if (data.commissionRate !== undefined) patch.commissionRate = data.commissionRate;
+        if (data.minBet !== undefined) patch.minBet = data.minBet;
+        if (data.maxBet !== undefined) patch.maxBet = data.maxBet;
+        if (data.minPlayers !== undefined) patch.minPlayers = data.minPlayers;
+        if (data.maxPlayers !== undefined) patch.maxPlayers = data.maxPlayers;
+        if (data.payoutMultiplier !== undefined) patch.payoutMultiplier = data.payoutMultiplier;
+        if (data.dailyBetLimit !== undefined) patch.dailyBetLimit = data.dailyBetLimit;
+        if (data.maintenanceMode !== undefined) patch.maintenanceMode = data.maintenanceMode;
+        if (data.maintenanceMessage !== undefined) patch.maintenanceMessage = data.maintenanceMessage;
+        if (data.difficulty !== undefined) patch.difficulty = data.difficulty;
+
+        if (patch.commissionRate !== undefined) {
+            patch.commissionRate = this.normalizeCommissionPercent(patch.commissionRate);
+        }
+
+        if (patch.minBet !== undefined) {
+            patch.minBet = this.normalizePositiveNumber(patch.minBet, 1);
+        }
+        if (patch.maxBet !== undefined) {
+            patch.maxBet = this.normalizePositiveNumber(patch.maxBet, patch.minBet ?? 1);
+        }
+        if (patch.minBet !== undefined && patch.maxBet !== undefined && patch.minBet > patch.maxBet) {
+            throw new BadRequestException('minBet cannot be greater than maxBet');
+        }
+
+        if (patch.minPlayers !== undefined) {
+            patch.minPlayers = this.normalizePositiveNumber(patch.minPlayers, 2);
+        }
+        if (patch.maxPlayers !== undefined) {
+            patch.maxPlayers = this.normalizePositiveNumber(patch.maxPlayers, patch.minPlayers ?? 2);
+        }
+        if (patch.minPlayers !== undefined && patch.maxPlayers !== undefined && patch.minPlayers > patch.maxPlayers) {
+            throw new BadRequestException('minPlayers cannot be greater than maxPlayers');
+        }
+
+        if (patch.payoutMultiplier !== undefined) {
+            patch.payoutMultiplier = this.normalizePositiveNumber(patch.payoutMultiplier, 1);
+            if (patch.payoutMultiplier <= 0) {
+                throw new BadRequestException('payoutMultiplier must be greater than 0');
+            }
+        }
+
+        if (patch.dailyBetLimit !== undefined && patch.dailyBetLimit !== null) {
+            patch.dailyBetLimit = this.normalizePositiveNumber(patch.dailyBetLimit, 0);
+            if (patch.dailyBetLimit <= 0) {
+                throw new BadRequestException('dailyBetLimit must be greater than 0 or null');
+            }
+        }
+
+        return patch as Partial<GameConfig>;
     }
 }

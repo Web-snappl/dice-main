@@ -1,10 +1,18 @@
-import { IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 export class UserDto {
     @IsString()
     uid: string;
 
     @IsString()
     displayName: string;
+
+    @IsOptional()
+    @IsString()
+    gameId?: string;
+
+    @IsOptional()
+    @IsObject()
+    bets?: Record<string, number>;
 
     rollDiceResult?: number
     winner?: boolean

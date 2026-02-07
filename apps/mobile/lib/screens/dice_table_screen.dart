@@ -17,6 +17,7 @@ class DiceTableScreen extends StatefulWidget {
   final Function(GameRecord) addHistory;
   final bool isOnline;
   final String language;
+  final Future<void> Function()? onBalanceRefresh;
 
   final double minBet;
   final double commissionRate;
@@ -31,6 +32,7 @@ class DiceTableScreen extends StatefulWidget {
     required this.commissionRate,
     this.isOnline = true,
     this.language = 'English',
+    this.onBalanceRefresh,
   });
 
   @override
@@ -48,16 +50,18 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
   bool _isMuted = false;
   bool _showLowBalanceModal = false;
   bool _showNoBetModal = false;
-  bool _localFallback = false;
   int? _hoveredNum;
   int? _hoveredBetAmount;
   bool _isMouseInMenu = false;
   Timer? _menuSwitchTimer;
   final List<LayerLink> _layerLinks = List.generate(6, (index) => LayerLink());
+  double _effectiveMinBet = 100;
+  double? _effectiveMaxBet;
+  double _effectiveCommissionRate = 5;
+  double _effectivePayoutMultiplier = 5;
 
   static const List<int> _betOptionsStd = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
   static const List<int> _betOptionsVip = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
-  static const int _multiplier = 5;
 
   String t(String key) => I18n.translate(key, widget.language);
 
@@ -69,6 +73,9 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
   void initState() {
     super.initState();
     _isMuted = AudioManager().isMuted();
+    _effectiveMinBet = widget.minBet;
+    _effectiveCommissionRate = widget.commissionRate;
+    _loadGameConfig();
   }
 
   @override
@@ -82,6 +89,32 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
     setState(() {
       _isMuted = muted;
     });
+  }
+
+  Future<void> _loadGameConfig() async {
+    try {
+      final config = await GameApi.getGameConfig('dice_table');
+      if (!mounted) return;
+      setState(() {
+        _effectiveMinBet = (config['minBet'] as num?)?.toDouble() ?? widget.minBet;
+        _effectiveMaxBet = (config['maxBet'] as num?)?.toDouble();
+        _effectiveCommissionRate = (config['commissionRate'] as num?)?.toDouble() ?? widget.commissionRate;
+        _effectivePayoutMultiplier = (config['payoutMultiplier'] as num?)?.toDouble() ?? 5;
+      });
+    } catch (e) {
+      debugPrint('Failed to load dice_table config: $e');
+    }
+  }
+
+  void _showGameError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _handleReset() {
@@ -110,22 +143,23 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
       return;
     }
 
+    if (_bets.values.any((amount) => amount < _effectiveMinBet)) {
+      AudioManager().play(SoundType.loss);
+      _showGameError('${t('Min Bet')}: ${_effectiveMinBet.toInt()} CFA');
+      return;
+    }
+
+    if (_effectiveMaxBet != null && _totalBet > _effectiveMaxBet!) {
+      AudioManager().play(SoundType.loss);
+      _showGameError('${t('Max Bet')}: ${_effectiveMaxBet!.toInt()} CFA');
+      return;
+    }
+
     if (widget.user.wallet.balance < _totalBet) {
       AudioManager().play(SoundType.loss);
       setState(() => _showLowBalanceModal = true);
       return;
     }
-
-    // Deduct funds
-    widget.setUser(widget.user.copyWith(
-      wallet: widget.user.wallet.copyWith(
-        balance: widget.user.wallet.balance - _totalBet,
-      ),
-      stats: widget.user.stats.copyWith(
-        gamesPlayed: widget.user.stats.gamesPlayed + 1,
-        totalWagered: widget.user.stats.totalWagered + _totalBet,
-      ),
-    ));
 
     setState(() {
       _gameState = 'ROLLING';
@@ -134,41 +168,42 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
       _isMouseInMenu = false;
     });
 
-    // Fetch from API if online
-    int finalValue = 1;
-    if (widget.isOnline && !_localFallback && _bets.keys.length < 6) {
+    int finalValue = Random().nextInt(6) + 1;
+    if (widget.isOnline && _bets.keys.length < 6) {
       try {
         final playersPayload = [
           {
-            'uid': widget.user.id, 
+            'uid': widget.user.id,
             'displayName': widget.user.name,
-            'betAmount': _totalBet
+            'betAmount': _totalBet,
+            'bets': _bets.map((key, value) => MapEntry(key.toString(), value)),
           },
           {'uid': 'dealer-bot', 'displayName': 'Dealer'},
         ];
-        final apiResponse = await GameApi.rollDice(playersPayload);
-        
+        final apiResponse = await GameApi.rollDice(playersPayload, gameId: 'dice_table');
+
         if (apiResponse.isNotEmpty) {
           final myResult = apiResponse.firstWhere(
             (r) => r['uid'] == widget.user.id,
             orElse: () => {},
           );
-          if (myResult['rollDiceResult'] != null) {
-            finalValue = myResult['rollDiceResult'] as int;
-          } else {
-            setState(() => _localFallback = true);
-            finalValue = Random().nextInt(6) + 1;
+          final serverRoll = myResult['dice1'] ?? myResult['rollDiceResult'];
+          if (serverRoll != null) {
+            final parsed = int.tryParse(serverRoll.toString());
+            if (parsed != null && parsed >= 1 && parsed <= 6) {
+              finalValue = parsed;
+            }
           }
-        } else {
-          finalValue = Random().nextInt(6) + 1;
         }
       } catch (e) {
-        debugPrint('API Roll Failed: $e');
-        setState(() => _localFallback = true);
-        finalValue = Random().nextInt(6) + 1;
+        if (mounted) {
+          setState(() {
+            _gameState = 'IDLE';
+          });
+        }
+        _showGameError(e.toString().replaceFirst('Exception: ', ''));
+        return;
       }
-    } else {
-      finalValue = Random().nextInt(6) + 1;
     }
 
     // Perform rolling animation with changing numbers
@@ -197,10 +232,20 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
       finalValue = 1;
     }
 
-    _finalizeRoll(finalValue);
+    widget.setUser(widget.user.copyWith(
+      wallet: widget.user.wallet.copyWith(
+        balance: widget.user.wallet.balance - _totalBet,
+      ),
+      stats: widget.user.stats.copyWith(
+        gamesPlayed: widget.user.stats.gamesPlayed + 1,
+        totalWagered: widget.user.stats.totalWagered + _totalBet,
+      ),
+    ));
+
+    await _finalizeRoll(finalValue);
   }
 
-  void _finalizeRoll(int finalValue) {
+  Future<void> _finalizeRoll(int finalValue) async {
     setState(() {
       _diceValue = finalValue;
       _gameState = 'RESULT';
@@ -214,8 +259,8 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
     double fee = 0.0;
 
     if (isWin) {
-      final grossWin = winningBetAmount * _multiplier;
-      fee = grossWin * (widget.commissionRate / 100);
+      final grossWin = winningBetAmount * _effectivePayoutMultiplier;
+      fee = grossWin * (_effectiveCommissionRate / 100);
       winAmount = grossWin - fee;
     }
 
@@ -255,6 +300,8 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
       opponentScore: finalValue,
       result: isWin ? GameResult.win : GameResult.loss,
     ));
+
+    await widget.onBalanceRefresh?.call();
   }
 
   void _handleSelectBet(int num, double amount) {
@@ -268,10 +315,10 @@ class _DiceTableScreenState extends State<DiceTableScreen> {
   void _handleCustomSubmit(int num) {
     final val = double.tryParse(_customBetInput);
     if (val != null && val > 0) {
-      if (val < widget.minBet) {
+      if (val < _effectiveMinBet) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${t('Min Bet')}: ${widget.minBet.toInt()} CFA'),
+            content: Text('${t('Min Bet')}: ${_effectiveMinBet.toInt()} CFA'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),

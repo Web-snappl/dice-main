@@ -273,6 +273,17 @@ class AuthApi {
 }
 
 class GameApi {
+  static Future<Map<String, dynamic>> getGameConfig(String gameId) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    return await ApiClient.fetchFromBackend(
+      '$baseUrl/api/game/config/$gameId',
+      null,
+      null,
+      'GET',
+      requiresAuth: true,
+    );
+  }
+
   static Future<Map<String, dynamic>> getLiveUsers() async {
     final baseUrl = await ApiClient.getBaseUrl();
     try {
@@ -289,12 +300,22 @@ class GameApi {
     }
   }
 
-  static Future<List<dynamic>> rollDice(List<Map<String, dynamic>> players) async {
+  static Future<List<dynamic>> rollDice(
+    List<Map<String, dynamic>> players, {
+    String? gameId,
+  }) async {
     final baseUrl = await ApiClient.getBaseUrl();
+    final payload = players
+        .map((player) => {
+              ...player,
+              if (gameId != null && gameId.isNotEmpty) 'gameId': gameId,
+            })
+        .toList();
+
     final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/game/rollDice',
       null,
-      json.encode(players),
+      json.encode(payload),
       'POST',
       requiresAuth: true,
     );

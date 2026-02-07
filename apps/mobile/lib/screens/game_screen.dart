@@ -21,6 +21,7 @@ class GameScreen extends StatefulWidget {
   final double commissionRate;
   final bool isOnline;
   final String language;
+  final Future<void> Function()? onBalanceRefresh;
 
   const GameScreen({
     super.key,
@@ -35,6 +36,7 @@ class GameScreen extends StatefulWidget {
     required this.commissionRate,
     required this.isOnline,
     this.language = 'English',
+    this.onBalanceRefresh,
   });
 
   @override
@@ -50,11 +52,17 @@ class _GameScreenState extends State<GameScreen> {
   int? _hoveredTableSize;
   bool _isRollHovered = false;
   late TextEditingController _betController;
+  double _effectiveCommissionRate = 5;
+  double _effectivePayoutMultiplier = 2;
+  double? _configuredMinBet;
+  double? _configuredMaxBet;
 
   @override
   void initState() {
     super.initState();
     _betController = TextEditingController(text: widget.betAmount.toStringAsFixed(0));
+    _effectiveCommissionRate = widget.commissionRate;
+    _loadGameConfig();
   }
 
   @override
@@ -76,9 +84,44 @@ class _GameScreenState extends State<GameScreen> {
 
   String t(String key) => I18n.translate(key, widget.language);
 
+  Future<void> _loadGameConfig() async {
+    try {
+      final config = await GameApi.getGameConfig('dice_duel');
+      if (!mounted) return;
+      setState(() {
+        _effectiveCommissionRate = (config['commissionRate'] as num?)?.toDouble() ?? widget.commissionRate;
+        _effectivePayoutMultiplier = (config['payoutMultiplier'] as num?)?.toDouble() ?? 2;
+        _configuredMinBet = (config['minBet'] as num?)?.toDouble();
+        _configuredMaxBet = (config['maxBet'] as num?)?.toDouble();
+      });
+    } catch (e) {
+      debugPrint('Failed to load dice_duel config: $e');
+    }
+  }
+
+  void _showGameError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _handleStartGame() {
     final activeDuels = widget.playerCount >= 3 ? 2 : 1;
     final totalBetRequired = widget.betAmount * activeDuels;
+
+    if (_configuredMinBet != null && widget.betAmount < _configuredMinBet!) {
+      _showGameError('${t('Min Bet')}: ${_configuredMinBet!.toStringAsFixed(0)}');
+      return;
+    }
+    if (_configuredMaxBet != null && widget.betAmount > _configuredMaxBet!) {
+      _showGameError('${t('Max Bet')}: ${_configuredMaxBet!.toStringAsFixed(0)}');
+      return;
+    }
 
     if (widget.user.wallet.balance < totalBetRequired) {
       _showInsufficientFunds(totalBetRequired);
@@ -108,25 +151,29 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _performRollSequence() async {
-    // Logic starts immediately as state is already ROLLING from previous step
     final activeDuels = widget.playerCount >= 3 ? 2 : 1;
-
     final totalBetRequired = widget.betAmount * activeDuels;
 
-    // Deduct bet
-    widget.onUserUpdate(
-      widget.user.copyWith(
-        wallet: widget.user.wallet.copyWith(
-          balance: widget.user.wallet.balance - totalBetRequired,
-        ),
-        stats: widget.user.stats.copyWith(
-          gamesPlayed: widget.user.stats.gamesPlayed + 1,
-          totalWagered: widget.user.stats.totalWagered + totalBetRequired,
-        ),
-      ),
-    );
+    List<dynamic> results;
+    try {
+      final players = <Map<String, dynamic>>[
+        {'uid': widget.user.id, 'displayName': widget.user.name, 'role': 'player', 'betAmount': widget.betAmount * activeDuels},
+        {'uid': 'opponent_1', 'displayName': 'Opponent 1', 'role': 'opponent', 'betAmount': widget.betAmount},
+      ];
+      if (widget.playerCount >= 3) {
+        players.add({'uid': 'opponent_2', 'displayName': 'Opponent 2', 'role': 'opponent', 'betAmount': widget.betAmount});
+      }
+      results = await GameApi.rollDice(players, gameId: 'dice_duel');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _gameState = 'READY';
+        });
+      }
+      _showGameError(e.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
 
-    // Rolling animation - Optimized for better performance (client-side for animation only)
     AudioManager().play(SoundType.roll);
     final random = Random();
     for (int i = 0; i < 10; i++) {
@@ -142,46 +189,40 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
 
-    // Get authoritative results from backend API
-    try {
-      final players = <Map<String, dynamic>>[
-        {'uid': widget.user.id, 'displayName': widget.user.name, 'role': 'player', 'betAmount': widget.betAmount * activeDuels},
-        {'uid': 'opponent_1', 'displayName': 'Opponent 1', 'role': 'opponent', 'betAmount': widget.betAmount},
-      ];
-      if (widget.playerCount >= 3) {
-        players.add({'uid': 'opponent_2', 'displayName': 'Opponent 2', 'role': 'opponent', 'betAmount': widget.betAmount});
-      }
+    for (final result in results) {
+      final uid = result['uid'];
+      final dice1 = result['dice1'] ?? 1;
+      final dice2 = result['dice2'] ?? 1;
 
-      final results = await GameApi.rollDice(players);
-      
-      // Parse backend results
-      for (final result in results) {
-        final uid = result['uid'];
-        final dice1 = result['dice1'] ?? 1;
-        final dice2 = result['dice2'] ?? 1;
-        
-        if (uid == widget.user.id) {
-          _myDice = [dice1, dice2];
-        } else if (uid == 'opponent_1') {
-          _leftDice = [dice1, dice2];
-        } else if (uid == 'opponent_2') {
-          _rightDice = [dice1, dice2];
-        }
-      }
-    } catch (e) {
-      // Fallback to client-side if backend fails (graceful degradation)
-      debugPrint('Backend rollDice failed: $e, using client-side fallback');
-      _myDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
-      _leftDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
-      if (widget.playerCount >= 3) {
-        _rightDice = [random.nextInt(6) + 1, random.nextInt(6) + 1];
+      if (uid == widget.user.id) {
+        _myDice = [dice1, dice2];
+      } else if (uid == 'opponent_1') {
+        _leftDice = [dice1, dice2];
+      } else if (uid == 'opponent_2') {
+        _rightDice = [dice1, dice2];
       }
     }
 
-    _calculateResults();
+    widget.onUserUpdate(
+      widget.user.copyWith(
+        wallet: widget.user.wallet.copyWith(
+          balance: widget.user.wallet.balance - totalBetRequired,
+        ),
+        stats: widget.user.stats.copyWith(
+          gamesPlayed: widget.user.stats.gamesPlayed + 1,
+          totalWagered: widget.user.stats.totalWagered + totalBetRequired,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    await _calculateResults();
   }
 
-  void _calculateResults() {
+  Future<void> _calculateResults() async {
     final myTotal = _myDice[0] + _myDice[1];
     final leftTotal = _leftDice[0] + _leftDice[1];
     final rightTotal = widget.playerCount >= 3
@@ -194,9 +235,9 @@ class _GameScreenState extends State<GameScreen> {
     String? rightResult;
 
     Map<String, double> calculateWin(double bet) {
-      final pot = bet * 2;
-      final fee = (pot * widget.commissionRate / 100).floorToDouble();
-      return {'payout': pot - fee, 'fee': fee};
+      final grossPayout = bet * _effectivePayoutMultiplier;
+      final fee = grossPayout * (_effectiveCommissionRate / 100);
+      return {'payout': grossPayout - fee, 'fee': fee};
     }
 
     if (myTotal > leftTotal) {
@@ -273,6 +314,8 @@ class _GameScreenState extends State<GameScreen> {
                 : GameResult.draw,
       ),
     );
+
+    await widget.onBalanceRefresh?.call();
   }
 
   void _resetGame() {

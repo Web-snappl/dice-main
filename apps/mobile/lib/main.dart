@@ -223,6 +223,7 @@ class _AppWrapperState extends State<AppWrapper> {
           commissionRate: appState.commissionRate,
           isOnline: appState.isOnline,
           language: appState.language,
+          onBalanceRefresh: appState.refreshBalance,
         );
         break;
       case Screen.wallet:
@@ -266,6 +267,7 @@ class _AppWrapperState extends State<AppWrapper> {
           commissionRate: appState.commissionRate,
           isOnline: appState.isOnline,
           language: appState.language,
+          onBalanceRefresh: appState.refreshBalance,
         );
         break;
     }
