@@ -638,6 +638,12 @@ export class KkiapayService {
         ];
 
         const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+
+        // DEBUG: Log if reference is missing to help troubleshoot
+        if (!value) {
+            this.logger.warn(`Failed to extract reference from provider payload: ${JSON.stringify(payload)}`);
+        }
+
         return value ? String(value).trim() : null;
     }
 
