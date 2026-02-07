@@ -15,6 +15,7 @@ import { users } from '../modules/auth/auth.mongoSchema';
 import { gameHistory } from '../common/gameHistory.mongoSchema';
 import { depositSchema, Deposit } from '../common/deposits.mongoSchema';
 import { GameHistoryModel } from '../common/gameHistory.mongoSchema';
+import { Transaction, transactionSchema } from '../common/transactions.mongoSchema';
 
 // Services
 import { AuditLogService } from './services/audit-log.service';
@@ -66,6 +67,7 @@ import { RolesGuard } from './guards/roles.guard';
       { name: 'users', schema: users },
       { name: GameHistoryModel.name, schema: gameHistory },
       { name: Deposit.name, schema: depositSchema },
+      { name: Transaction.name, schema: transactionSchema },
     ]),
   ],
   controllers: [

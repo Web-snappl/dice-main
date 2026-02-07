@@ -22,6 +22,9 @@ interface Transaction {
     amount: number;
     type: string;
     timestamp: string;
+    status: string;
+    method?: string;
+    accountNumber?: string;
 }
 
 interface Anomaly {
@@ -46,12 +49,12 @@ export function FinancialPage() {
         loadData();
     }, [t]);
 
-    const loadData = async () => {
+    const loadData = async (statusFilter?: string) => {
         setIsLoading(true);
         try {
             const [summaryData, transactionsData, anomaliesData] = await Promise.all([
                 api.getFinancialSummary(),
-                api.getTransactions(),
+                api.getTransactions(statusFilter ? { status: statusFilter } : {}),
                 api.getFinancialAnomalies(),
             ]);
             setSummary(summaryData);
@@ -137,39 +140,103 @@ export function FinancialPage() {
                     )}
 
                     {activeTab === 'transactions' && (
-                        <div className="card p-0">
-                            {transactions.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-64 text-dark-400">
-                                    <DollarSign className="w-12 h-12 mb-4" />
-                                    <p>{t('financial.notAvailable')}</p>
-                                </div>
-                            ) : (
-                                <table className="w-full">
-                                    <thead className="bg-dark-700">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">User</th>
-                                            <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">Type</th>
-                                            <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase">Amount</th>
-                                            <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase">Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-dark-700">
-                                        {transactions.map((tx) => (
-                                            <tr key={tx.id} className="hover:bg-dark-700/50 transition-colors">
-                                                <td className="px-6 py-4 text-white">{tx.userName || tx.userId}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full capitalize">
-                                                        {tx.type}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-green-400 font-medium">{tx.amount.toLocaleString()} Coins</td>
-                                                <td className="px-6 py-4 text-right text-dark-400">{new Date(tx.timestamp).toLocaleDateString()}</td>
+                        <>
+                            {/* Filter Controls */}
+                            <div className="flex space-x-4 mb-4">
+                                <select
+                                    className="bg-dark-700 text-white rounded px-3 py-2 border border-dark-600"
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        loadData(val === 'ALL' ? undefined : val);
+                                    }}
+                                    defaultValue="ALL"
+                                >
+                                    <option value="ALL">All Status</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="SUCCESS">Success</option>
+                                    <option value="FAILED">Failed</option>
+                                </select>
+                            </div>
+
+                            <div className="card p-0">
+                                {transactions.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-64 text-dark-400">
+                                        <DollarSign className="w-12 h-12 mb-4" />
+                                        <p>{t('financial.notAvailable')}</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full">
+                                        <thead className="bg-dark-700">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">User</th>
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">Type</th>
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">Status</th>
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-dark-400 uppercase">Method</th>
+                                                <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase">Amount</th>
+                                                <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase">Date</th>
+                                                <th className="px-6 py-4 text-right text-xs font-medium text-dark-400 uppercase">Actions</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-dark-700">
+                                            {transactions.map((tx) => (
+                                                <tr key={tx.id} className="hover:bg-dark-700/50 transition-colors">
+                                                    <td className="px-6 py-4 text-white">
+                                                        <div>{tx.userName || tx.userId}</div>
+                                                        {tx.accountNumber && <div className="text-xs text-dark-400">{tx.accountNumber}</div>}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-1 text-xs rounded-full capitalize ${tx.type === 'DEPOSIT' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                                                            }`}>
+                                                            {tx.type}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-1 text-xs rounded-full capitalize ${tx.status === 'SUCCESS' ? 'bg-green-500/20 text-green-400' :
+                                                            tx.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                'bg-red-500/20 text-red-400'
+                                                            }`}>
+                                                            {tx.status || 'UNKNOWN'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-dark-300 text-sm">{tx.method}</td>
+                                                    <td className="px-6 py-4 text-right font-medium text-white">{tx.amount.toLocaleString()} CFA</td>
+                                                    <td className="px-6 py-4 text-right text-dark-400">{new Date(tx.timestamp).toLocaleDateString()}</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {tx.type === 'WITHDRAW' && tx.status === 'PENDING' && (
+                                                            <div className="flex justify-end space-x-2">
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (confirm('Approve withdrawal? Ensure you have manually sent the funds.')) {
+                                                                            await api.approveWithdrawal(tx.id);
+                                                                            loadData(); // Refresh
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        const reason = prompt('Reason for rejection:');
+                                                                        if (reason) {
+                                                                            await api.rejectWithdrawal(tx.id, reason);
+                                                                            loadData();
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </>
                     )}
 
                     {activeTab === 'anomalies' && (

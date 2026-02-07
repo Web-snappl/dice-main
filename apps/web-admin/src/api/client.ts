@@ -281,6 +281,16 @@ class ApiClient {
         return response.data;
     }
 
+    async approveWithdrawal(id: string) {
+        const response = await this.client.patch(`/admin/financial/transactions/${id}/approve`);
+        return response.data;
+    }
+
+    async rejectWithdrawal(id: string, reason: string) {
+        const response = await this.client.patch(`/admin/financial/transactions/${id}/reject`, { reason });
+        return response.data;
+    }
+
     // Audit Log
     async getAuditLogs(params?: Record<string, unknown>) {
         const response = await this.client.get('/admin/audit-logs', { params });
