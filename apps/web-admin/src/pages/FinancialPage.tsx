@@ -73,7 +73,7 @@ export function FinancialPage() {
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-center">
                 <Lock className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />
                 <p className="text-yellow-300 text-sm">
-                    {t('financial.readOnly')} - No payment provider integrations are activated. This is a view-only dashboard.
+                    {t('financial.readOnly')} - Some operations are restricted here. Deposit verification and balance crediting are enforced server-side.
                 </p>
             </div>
 

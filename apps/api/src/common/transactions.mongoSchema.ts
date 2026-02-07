@@ -31,7 +31,18 @@ export class Transaction extends Document {
     referenceId: string; // External Reference ID (MTN UUID, Stripe PI ID)
 
     @Prop({ required: false })
+    providerTransactionId: string; // Provider payment identifier (e.g., Kkiapay transaction ID)
+
+    @Prop({ required: false })
+    currency: string; // ISO currency code
+
+    @Prop({ required: false })
+    verifiedAt: Date;
+
+    @Prop({ required: false })
     adminNote: string;
 }
 
 export const transactionSchema = SchemaFactory.createForClass(Transaction);
+transactionSchema.index({ userId: 1, type: 1, method: 1, referenceId: 1 });
+transactionSchema.index({ type: 1, method: 1, providerTransactionId: 1, status: 1 });

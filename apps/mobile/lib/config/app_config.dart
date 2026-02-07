@@ -3,12 +3,12 @@
 /// To switch between environments, change the [currentEnvironment] value.
 /// For production builds, ensure [currentEnvironment] is set to [Environment.production].
 class AppConfig {
-  static const Environment currentEnvironment = Environment.production;
+  static const Environment currentEnvironment = Environment.development;
   
   static String get apiBaseUrl {
     switch (currentEnvironment) {
       case Environment.development:
-        return 'http://10.0.2.2:3000'; // Android emulator localhost
+        return 'https://api-production-6de9.up.railway.app'; // Use Production API for testing logic
       case Environment.staging:
         return 'https://staging-api.yourdomain.com';
       case Environment.production:
@@ -16,11 +16,11 @@ class AppConfig {
     }
   }
   
-  /// iOS simulator uses localhost directly
+  /// Optional iOS-specific API URL override
   static String get apiBaseUrlIos {
     switch (currentEnvironment) {
       case Environment.development:
-        return 'http://localhost:3000';
+        return 'https://api-production-6de9.up.railway.app';
       case Environment.staging:
         return 'https://staging-api.yourdomain.com';
       case Environment.production:
@@ -30,6 +30,18 @@ class AppConfig {
   
   static bool get isProduction => currentEnvironment == Environment.production;
   static bool get isDevelopment => currentEnvironment == Environment.development;
+
+  static String get kkiapayApiKey {
+    switch (currentEnvironment) {
+      case Environment.development:
+        return '1dee80d003c011f183fa9d968bd8511b'; // Public Test Key
+      case Environment.staging:
+      case Environment.production:
+        return '1dee80d003c011f183fa9d968bd8511b'; // Replace with Live Public Key if different
+    }
+  }
+
+  static bool get kkiapaySandbox => isDevelopment;
 }
 
 enum Environment {

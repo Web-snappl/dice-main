@@ -73,6 +73,8 @@ export class FinancialController {
                     timestamp: t.timestamp,
                     accountNumber: t.accountNumber, // For withdrawals
                     referenceId: t.referenceId,
+                    providerTransactionId: t.providerTransactionId,
+                    currency: t.currency,
                 })),
                 total,
                 page,
@@ -91,48 +93,96 @@ export class FinancialController {
 
     @Patch('transactions/:id/approve')
     async approveWithdrawal(@Param('id') id: string) {
-        const transaction = await this.transactionModel.findById(id);
-        if (!transaction) throw new NotFoundException('Transaction not found');
+        const approved = await this.transactionModel.findOneAndUpdate(
+            { _id: id, type: 'WITHDRAW', status: 'PENDING' },
+            {
+                $set: {
+                    status: 'SUCCESS',
+                    adminNote: 'Approved by Admin',
+                    verifiedAt: new Date(),
+                },
+            },
+            { new: true },
+        );
 
-        if (transaction.type !== 'WITHDRAW' || transaction.status !== 'PENDING') {
-            throw new BadRequestException('Transaction is not a pending withdrawal');
+        if (approved) {
+            return { message: 'Withdrawal approved', transaction: approved };
         }
 
-        // Logic handled manually by Admin outside system? 
-        // Or integration sends money automatically?
-        // Since we don't have auto-payout yet, we mark as SUCCESS implying Admin paid manually.
-
-        transaction.status = 'SUCCESS';
-        transaction.adminNote = 'Approved by Admin';
-        await transaction.save();
-
-        return { message: 'Withdrawal approved', transaction };
+        const existing = await this.transactionModel.findById(id);
+        if (!existing) {
+            throw new NotFoundException('Transaction not found');
+        }
+        if (existing.type !== 'WITHDRAW') {
+            throw new BadRequestException('Transaction is not a withdrawal');
+        }
+        if (existing.status === 'SUCCESS') {
+            return { message: 'Withdrawal already approved', transaction: existing };
+        }
+        if (existing.status === 'FAILED') {
+            throw new BadRequestException('Cannot approve a rejected withdrawal');
+        }
+        throw new BadRequestException('Transaction is not a pending withdrawal');
     }
 
     @Patch('transactions/:id/reject')
     async rejectWithdrawal(@Param('id') id: string, @Body('reason') reason: string) {
-        const transaction = await this.transactionModel.findById(id);
-        if (!transaction) throw new NotFoundException('Transaction not found');
+        const rejectionReason = (reason || '').trim() || 'Rejected by Admin';
+        const session = await this.transactionModel.db.startSession();
+        let finalTransaction: Transaction | null = null;
 
-        if (transaction.type !== 'WITHDRAW' || transaction.status !== 'PENDING') {
-            // Allow rejecting PENDING_BALANCE deposits as well if needed, but primarily withdrawals
-            if (transaction.status !== 'PENDING')
-                throw new BadRequestException('Transaction is not pending');
+        try {
+            await session.withTransaction(async () => {
+                const transaction = await this.transactionModel.findOne({
+                    _id: id,
+                    type: 'WITHDRAW',
+                }).session(session);
+
+                if (!transaction) {
+                    throw new NotFoundException('Transaction not found');
+                }
+
+                if (transaction.status === 'FAILED') {
+                    finalTransaction = transaction;
+                    return;
+                }
+
+                if (transaction.status === 'SUCCESS') {
+                    throw new BadRequestException('Cannot reject an approved withdrawal');
+                }
+
+                if (transaction.status !== 'PENDING') {
+                    throw new BadRequestException('Transaction is not pending');
+                }
+
+                const updatedUser = await this.userModel.findByIdAndUpdate(
+                    transaction.userId,
+                    { $inc: { balance: transaction.amount } },
+                    { new: true, session },
+                );
+                if (!updatedUser) {
+                    throw new NotFoundException('User not found for refund');
+                }
+
+                transaction.status = 'FAILED';
+                transaction.adminNote = rejectionReason;
+                transaction.verifiedAt = new Date();
+                await transaction.save({ session });
+                finalTransaction = transaction;
+            });
+        } finally {
+            await session.endSession();
         }
 
-        // Refund user balance if it was a withdrawal
-        if (transaction.type === 'WITHDRAW') {
-            await this.userModel.findByIdAndUpdate(
-                transaction.userId,
-                { $inc: { balance: transaction.amount } }
-            );
+        if (!finalTransaction) {
+            throw new NotFoundException('Transaction not found');
         }
 
-        transaction.status = 'FAILED';
-        transaction.adminNote = reason || 'Rejected by Admin';
-        await transaction.save();
+        if (finalTransaction.status === 'FAILED' && finalTransaction.adminNote !== rejectionReason) {
+            return { message: 'Withdrawal already rejected', transaction: finalTransaction };
+        }
 
-        return { message: 'Transaction rejected and refunded', transaction };
+        return { message: 'Withdrawal rejected and balance refunded', transaction: finalTransaction };
     }
 
     @Get('summary')

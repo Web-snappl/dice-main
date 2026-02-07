@@ -3,9 +3,9 @@ import '../models/types.dart';
 import '../utils/i18n.dart';
 import '../utils/app_theme.dart';
 import '../widgets/app_button.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:kkiapay_flutter_sdk/kkiapay_flutter_sdk.dart';
 import '../utils/api.dart';
+import '../config/app_config.dart';
 
 class WalletScreen extends StatelessWidget {
   final User user;
@@ -44,7 +44,7 @@ class WalletScreen extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.surface,
               border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
@@ -94,7 +94,7 @@ class WalletScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          '$_formattedBalance',
+                          _formattedBalance,
                           style: AppTextStyles.display(
                             fontSize: 48,
                             fontWeight: FontWeight.bold,
@@ -205,6 +205,74 @@ class WalletScreen extends StatelessWidget {
     );
   }
 
+  String _statusValue(dynamic value) {
+    return value?.toString().toUpperCase().trim() ?? '';
+  }
+
+  Future<Map<String, dynamic>> _verifyDepositWithRetry({
+    required String transactionId,
+    required String referenceId,
+    int maxAttempts = 3,
+  }) async {
+    Object? lastError;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await WalletApi.verifyKkiapayTransaction(
+          transactionId: transactionId,
+          referenceId: referenceId,
+        );
+      } catch (e) {
+        lastError = e;
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(seconds: attempt));
+        }
+      }
+    }
+
+    throw lastError ?? Exception('Verification failed');
+  }
+
+  Future<bool> _waitForDepositSettlement({
+    required String referenceId,
+    int maxAttempts = 6,
+  }) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+
+      try {
+        final statusResponse = await WalletApi.getKkiapayDepositStatus(
+          referenceId: referenceId,
+        );
+        final status = _statusValue(statusResponse['status']);
+        if (status == 'SUCCESS') {
+          return true;
+        }
+        if (status == 'FAILED') {
+          return false;
+        }
+      } catch (_) {
+        // Retry on transient errors.
+      }
+    }
+
+    return false;
+  }
+
+  void _appendTransactionFromPayload(dynamic payload) {
+    if (payload is! Map) {
+      return;
+    }
+
+    final tx = Map<String, dynamic>.from(payload);
+    tx['id'] ??= tx['referenceId'] ?? 'tx_${DateTime.now().millisecondsSinceEpoch}';
+    tx['date'] ??= tx['timestamp']?.toString() ?? DateTime.now().toIso8601String();
+
+    addTransaction(Transaction.fromJson(tx));
+  }
+
   void _showDepositSheet(BuildContext context) {
     if (user.wallet.balance > 0) {} // placeholder logic
     showModalBottomSheet(
@@ -214,68 +282,147 @@ class WalletScreen extends StatelessWidget {
       builder: (ctx) => _PaymentSheet(
         title: t('Deposit with MTN MoMo'),
         buttonText: t('Deposit'),
-        onSubmit: (phone, amount) {
+        onSubmit: (phone, amount) async {
           Navigator.pop(ctx);
+          String referenceId = '';
+          var useSandbox = AppConfig.kkiapaySandbox;
+          var useApiKey = AppConfig.kkiapayApiKey;
+          var useAmount = amount.toInt();
+
+          try {
+            final intent = await WalletApi.createKkiapayDepositIntent(
+              amount: amount,
+              phone: phone,
+            );
+            referenceId = intent['referenceId']?.toString() ?? '';
+            if (referenceId.isEmpty) {
+              throw Exception('Missing deposit reference from backend');
+            }
+            final kkiapayConfig = intent['kkiapay'];
+            if (kkiapayConfig is Map<String, dynamic>) {
+              final backendSandbox = kkiapayConfig['sandbox'];
+              final backendPublicKey = kkiapayConfig['publicKey']?.toString();
+              if (backendSandbox is bool) {
+                useSandbox = backendSandbox;
+              }
+              if (backendPublicKey != null && backendPublicKey.isNotEmpty) {
+                useApiKey = backendPublicKey;
+              }
+            }
+            final backendAmount = intent['amount'];
+            if (backendAmount is num && backendAmount > 0) {
+              useAmount = backendAmount.toInt();
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${t('Mtn Error Generic')}: ${e.toString().replaceAll('Exception: ', '')}'),
+                  backgroundColor: AppColors.danger,
+                ),
+              );
+            }
+            return;
+          }
+
+          if (!context.mounted) return;
+          var callbackHandled = false;
+
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => KKiaPay(
-                amount: amount.toInt(),
+              builder: (routeContext) => KKiaPay(
+                amount: useAmount,
                 phone: phone,
-                data: 'Deposit',
-                sandbox: true,
-                apikey: '1dee80d003c011f183fa9d968bd8511b', // Public Key provided by user
-                callback: (response, context) async {
-                  Navigator.pop(context); // Close Kkiapay
-                  if (response['status'] == 'PAYMENT_SUCCESS') {
-                    try {
-                      debugPrint('[WalletScreen] Verifying transaction: ${response['transactionId']}');
-                      
-                      // 1. Verify transaction on backend
-                      final verifyResponse = await WalletApi.verifyKkiapayTransaction(
-                        transactionId: response['transactionId'],
+                data: referenceId,
+                sandbox: useSandbox,
+                apikey: useApiKey,
+                callback: (response, kkiapayContext) async {
+                  final status = response['status']?.toString().toUpperCase() ?? '';
+                  final txId = response['transactionId']?.toString() ?? '';
+
+                  if (status == 'PAYMENT_INIT') {
+                    return;
+                  }
+                  if (callbackHandled) {
+                    return;
+                  }
+                  callbackHandled = true;
+
+                  Navigator.pop(kkiapayContext);
+                  if (!context.mounted) return;
+
+                  if (status == 'PAYMENT_SUCCESS') {
+                    if (txId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(t('Verification Failed')),
+                          backgroundColor: AppColors.danger,
+                        ),
                       );
-                      
-                      if (context.mounted) {
-                        debugPrint('[WalletScreen] Verification success. Updating user state.');
-                        
-                        // 2. Update local state from response (Immediate update)
-                        if (verifyResponse['user'] != null) {
-                           final updatedUser = User.fromJson(verifyResponse['user']);
-                           debugPrint('[WalletScreen] New Balance: ${updatedUser.wallet.balance}');
-                           setUser(updatedUser);
-                        } else {
-                           // Fallback to getMe if user object missing (should not happen with new API)
-                           debugPrint('[WalletScreen] User object missing in response, fetching /me');
-                           final userData = await AuthApi.getMe();
-                           setUser(User.fromJson(userData));
-                        }
-                        
-                        // 3. Refresh separate transaction list if needed
-                        // (Optional: addTransaction(Transaction.fromJson(...)) if returned)
-                        
+                      return;
+                    }
+
+                    try {
+                      final verifyResponse = await _verifyDepositWithRetry(
+                        transactionId: txId,
+                        referenceId: referenceId,
+                      );
+
+                      if (verifyResponse['user'] != null) {
+                        setUser(User.fromJson(verifyResponse['user']));
+                      } else {
+                        final userData = await AuthApi.getMe();
+                        setUser(User.fromJson(userData));
+                      }
+                      _appendTransactionFromPayload(verifyResponse['transaction']);
+
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(t('Deposit Successful')),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    } catch (e) {
+                      final settled = await _waitForDepositSettlement(
+                        referenceId: referenceId,
+                      );
+                      if (settled) {
+                        try {
+                          final userData = await AuthApi.getMe();
+                          setUser(User.fromJson(userData));
+                        } catch (_) {}
+
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(t('Deposit Successful')),
                             backgroundColor: AppColors.success,
                           ),
                         );
+                        return;
                       }
-                    } catch (e) {
-                      debugPrint('[WalletScreen] Verification Error: $e');
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${t('Verification Failed')}: $e'),
-                            backgroundColor: AppColors.danger,
-                            duration: const Duration(seconds: 5),
-                          ),
-                        );
-                      }
+
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${t('Verification Failed')}: ${e.toString().replaceAll('Exception: ', '')}'),
+                          backgroundColor: AppColors.danger,
+                          duration: const Duration(seconds: 5),
+                        ),
+                      );
                     }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Payment status: $status'),
+                        backgroundColor: AppColors.danger,
+                      ),
+                    );
                   }
                 },
-                theme: AppColors.primary.value.toRadixString(16).substring(2),
+                theme: AppColors.primary.toARGB32().toRadixString(16).substring(2),
                 name: user.name,
               ),
             ),
@@ -296,8 +443,17 @@ class WalletScreen extends StatelessWidget {
         isWithdraw: true,
         onSubmit: (phone, amount) async {
           Navigator.pop(ctx);
+          final requestId = 'WD_${DateTime.now().microsecondsSinceEpoch}';
           try {
-            await WalletApi.initiateWithdrawal(phone: phone, amount: amount);
+            final response = await WalletApi.initiateWithdrawal(
+              phone: phone,
+              amount: amount,
+              requestId: requestId,
+            );
+            if (response['user'] != null) {
+              setUser(User.fromJson(response['user']));
+            }
+            _appendTransactionFromPayload(response['transaction']);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

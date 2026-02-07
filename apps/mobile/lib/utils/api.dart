@@ -398,17 +398,17 @@ class AdminApi {
 }
 
 class WalletApi {
-  static Future<Map<String, dynamic>> initiateDeposit({
-    required String phone,
+  static Future<Map<String, dynamic>> createKkiapayDepositIntent({
     required double amount,
+    String? phone,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
     return await ApiClient.fetchFromBackend(
-      '$baseUrl/api/mtn/deposit',
+      '$baseUrl/api/kkiapay/deposit-intent',
       null,
       json.encode({
-        'phone': phone,
         'amount': amount,
+        if (phone != null && phone.isNotEmpty) 'phoneNumber': phone,
       }),
       'POST',
       requiresAuth: true,
@@ -418,6 +418,7 @@ class WalletApi {
   static Future<Map<String, dynamic>> initiateWithdrawal({
     required String phone,
     required double amount,
+    String? requestId,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
     return await ApiClient.fetchFromBackend(
@@ -426,6 +427,7 @@ class WalletApi {
       json.encode({
         'phoneNumber': phone,
         'amount': amount,
+        if (requestId != null && requestId.isNotEmpty) 'requestId': requestId,
       }),
       'POST',
       requiresAuth: true,
@@ -434,13 +436,30 @@ class WalletApi {
 
   static Future<Map<String, dynamic>> verifyKkiapayTransaction({
     required String transactionId,
+    required String referenceId,
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
     return await ApiClient.fetchFromBackend(
       '$baseUrl/api/kkiapay/verify',
       null,
-      json.encode({'transactionId': transactionId}),
+      json.encode({
+        'transactionId': transactionId,
+        'referenceId': referenceId,
+      }),
       'POST',
+      requiresAuth: true,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getKkiapayDepositStatus({
+    required String referenceId,
+  }) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    return await ApiClient.fetchFromBackend(
+      '$baseUrl/api/kkiapay/deposit-status/$referenceId',
+      null,
+      null,
+      'GET',
       requiresAuth: true,
     );
   }
