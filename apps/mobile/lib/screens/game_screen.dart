@@ -257,7 +257,8 @@ class _GameScreenState extends State<GameScreen> {
 
     Map<String, double> calculateWin(double bet) {
       final grossPayout = bet * _effectivePayoutMultiplier;
-      final fee = grossPayout * (_effectiveCommissionRate / 100);
+      final profit = grossPayout - bet;
+      final fee = profit * (_effectiveCommissionRate / 100);
       return {'payout': grossPayout - fee, 'fee': fee};
     }
 

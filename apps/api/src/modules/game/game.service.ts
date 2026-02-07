@@ -171,7 +171,9 @@ export class GameService {
                     isWinner = true;
                     // Formula: Gross Win including stake return
                     const grossWin = winningBet * payoutMultiplier;
-                    const fee = grossWin * commissionRate;
+                    // Fee is calculated on PROFIT only (Winning - Stake)
+                    const profit = grossWin - winningBet;
+                    const fee = profit * commissionRate;
                     winnings = grossWin - fee;
                 }
             }
@@ -277,7 +279,11 @@ export class GameService {
 
             if (isWinner) {
                 const grossPayout = betAmount * payoutMultiplier;
-                const fee = grossPayout * commissionRate;
+
+                // Fee is calculated on PROFIT only (Gross - Bet)
+                const profit = grossPayout - betAmount;
+                const fee = profit * commissionRate;
+
                 const netPayout = grossPayout - fee;
 
                 // Add payout to the negative stance
