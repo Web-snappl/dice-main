@@ -30,7 +30,7 @@ class ApiClient {
   }
 
   /// Make an authenticated API request with JWT token
-  static Future<Map<String, dynamic>> fetchFromBackend(
+  static Future<dynamic> fetchFromBackend(
     String url,
     Map<String, String>? headers,
     String? body,
@@ -76,11 +76,11 @@ class ApiClient {
         throw Exception('Session expired. Please login again.');
       }
 
-      Map<String, dynamic> data;
+      dynamic data;
 
       final contentType = response.headers['content-type'] ?? '';
       if (contentType.contains('application/json')) {
-        data = json.decode(response.body) as Map<String, dynamic>;
+        data = json.decode(response.body);
       } else {
         if (response.statusCode == 404) {
           throw Exception('Endpoint not found (404): $url.');
@@ -90,10 +90,13 @@ class ApiClient {
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        if (data['message'] is List) {
-          throw Exception((data['message'] as List).first);
+        if (data is Map<String, dynamic>) {
+           if (data['message'] is List) {
+             throw Exception((data['message'] as List).first);
+           }
+           throw Exception(data['message'] ?? 'API Error: ${response.statusCode}');
         }
-        throw Exception(data['message'] ?? 'API Error: ${response.statusCode}');
+        throw Exception('API Error: ${response.statusCode}');
       }
 
       return data;
@@ -169,15 +172,17 @@ class AuthApi {
     );
 
     // Store tokens securely
-    if (response['accessToken'] != null) {
+    if (response is Map<String, dynamic> && response['accessToken'] != null) {
       await SecureStorage.saveTokens(
         accessToken: response['accessToken'],
         refreshToken: response['refreshToken'] ?? '',
         userId: response['user']?['uid'] ?? '',
       );
+      return response;
+    } else if (response is Map<String, dynamic>) {
+        return response;
     }
-
-    return response;
+     throw Exception('Invalid login response');
   }
 
   /// Register a new user and receive JWT tokens
@@ -206,28 +211,32 @@ class AuthApi {
       'POST',
     );
 
-    // Store tokens securely
-    if (response['accessToken'] != null) {
+     // Store tokens securely
+    if (response is Map<String, dynamic> && response['accessToken'] != null) {
       await SecureStorage.saveTokens(
         accessToken: response['accessToken'],
         refreshToken: response['refreshToken'] ?? '',
         userId: response['user']?['uid'] ?? '',
       );
+      return response;
+    } else if (response is Map<String, dynamic>) {
+        return response;
     }
-
-    return response;
+    throw Exception('Invalid signup response');
   }
 
   /// Get current user profile (requires auth)
   static Future<Map<String, dynamic>> getMe() async {
     final baseUrl = await ApiClient.getBaseUrl();
-    return await ApiClient.fetchFromBackend(
+    final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/auth/me',
       null,
       null,
       'GET',
       requiresAuth: true,
     );
+     if (response is Map<String, dynamic>) return response;
+     throw Exception('Invalid user profile response');
   }
 
   /// Logout - clear tokens
@@ -242,7 +251,7 @@ class AuthApi {
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
 
-    return await ApiClient.fetchFromBackend(
+    final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/mailsender/forgotPassword',
       null,
       json.encode({
@@ -252,6 +261,8 @@ class AuthApi {
       }),
       'POST',
     );
+     if (response is Map<String, dynamic>) return response;
+     throw Exception('Invalid response');
   }
 
   static Future<Map<String, dynamic>> resetPassword({
@@ -260,7 +271,7 @@ class AuthApi {
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
 
-    return await ApiClient.fetchFromBackend(
+    final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/mailsender/resetPassword',
       null,
       json.encode({
@@ -269,31 +280,37 @@ class AuthApi {
       }),
       'POST',
     );
+    if (response is Map<String, dynamic>) return response;
+    throw Exception('Invalid response');
   }
 }
 
 class GameApi {
   static Future<Map<String, dynamic>> getGameConfig(String gameId) async {
     final baseUrl = await ApiClient.getBaseUrl();
-    return await ApiClient.fetchFromBackend(
+    final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/game/config/$gameId',
       null,
       null,
       'GET',
       requiresAuth: true,
     );
+     if (response is Map<String, dynamic>) return response;
+    throw Exception('Invalid game config response');
   }
 
   static Future<Map<String, dynamic>> getLiveUsers() async {
     final baseUrl = await ApiClient.getBaseUrl();
     try {
-      return await ApiClient.fetchFromBackend(
+      final response = await ApiClient.fetchFromBackend(
         '$baseUrl/api/game/searchPlayers',
         null,
         null,
         'GET',
         requiresAuth: true,
       );
+       if (response is Map<String, dynamic>) return response;
+       return {'onlineUsers': []};
     } catch (e) {
       ApiClient._log('Live Users API Error: $e');
       return {'onlineUsers': []};
@@ -320,10 +337,13 @@ class GameApi {
       requiresAuth: true,
     );
 
-    if (response['data'] != null) {
+    if (response is Map<String, dynamic> && response['data'] != null) {
       return response['data'] as List<dynamic>;
     }
-    return response as List<dynamic>;
+    if (response is List) {
+      return response;
+    }
+    throw Exception('Unexpected response format');
   }
 }
 
@@ -361,7 +381,7 @@ class AdminApi {
         requiresAuth: true,
       );
 
-      if (response['data'] != null) {
+      if (response is Map<String, dynamic> && response['data'] != null) {
         return response['data'] as List<dynamic>;
       }
       return response as List<dynamic>;

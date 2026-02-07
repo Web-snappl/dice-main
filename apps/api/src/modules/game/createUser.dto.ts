@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 export class UserDto {
     @IsString()
     uid: string;
@@ -14,11 +14,28 @@ export class UserDto {
     @IsObject()
     bets?: Record<string, number>;
 
+    @IsOptional()
+    @IsNumber()
     rollDiceResult?: number
+
+    @IsOptional()
+    @IsBoolean()
     winner?: boolean
+
+    @IsOptional()
+    @IsString({ each: true })
     winsAgainst?: string[]
+
+    @IsOptional()
+    @IsNumber()
     dice1?: number
+
+    @IsOptional()
+    @IsNumber()
     dice2?: number
+
+    @IsOptional()
+    @IsNumber()
     betAmount?: number
 }
 
