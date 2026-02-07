@@ -421,10 +421,10 @@ class WalletApi {
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
     return await ApiClient.fetchFromBackend(
-      '$baseUrl/api/mtn/withdraw',
+      '$baseUrl/api/kkiapay/withdraw',
       null,
       json.encode({
-        'phone': phone,
+        'phoneNumber': phone,
         'amount': amount,
       }),
       'POST',

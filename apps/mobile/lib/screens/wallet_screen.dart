@@ -224,29 +224,39 @@ class WalletScreen extends StatelessWidget {
                 phone: phone,
                 data: 'Deposit',
                 sandbox: true,
-                apikey: 'INSERT_PUBLIC_KEY_HERE', // TODO: Get from env
+                apikey: '1dee80d003c011f183fa9d968bd8511b', // Public Key provided by user
                 callback: (response, context) async {
                   Navigator.pop(context); // Close Kkiapay
                   if (response['status'] == 'PAYMENT_SUCCESS') {
                     try {
+                      // 1. Verify transaction on backend
                       await WalletApi.verifyKkiapayTransaction(
                         transactionId: response['transactionId'],
                       );
+                      
+                      // 2. Fetch updated user data (including new balance)
+                      final userData = await AuthApi.getMe(); // Returns Map<String, dynamic>
+                      
                       if (context.mounted) {
+                        // 3. Update local state
+                        // We assume userData is the full user object from /auth/me
+                        final updatedUser = User.fromJson(userData);
+                        setUser(updatedUser);
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(t('Deposit Successful')),
                             backgroundColor: AppColors.success,
                           ),
                         );
-                        // Trigger user refresh logic if available
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(t('Verification Failed')),
+                            content: Text('${t('Verification Failed')}: $e'),
                             backgroundColor: AppColors.danger,
+                            duration: const Duration(seconds: 5),
                           ),
                         );
                       }
@@ -254,7 +264,7 @@ class WalletScreen extends StatelessWidget {
                   }
                 },
                 theme: AppColors.primary.value.toRadixString(16).substring(2),
-                name: user.firstName,
+                name: user.name,
               ),
             ),
           );
@@ -279,7 +289,7 @@ class WalletScreen extends StatelessWidget {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(t('Mtn Withdraw Success')),
+                  content: Text(t('Withdrawal Requested')),
                   backgroundColor: AppColors.success,
                 ),
               );

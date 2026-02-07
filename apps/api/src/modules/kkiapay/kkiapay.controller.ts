@@ -14,4 +14,11 @@ export class KkiapayController {
         this.logger.log(`Received verification request for tx: ${body.transactionId} from user ${req.user.userId}`);
         return await this.kkiapayService.processDeposit(req.user.userId, body.transactionId);
     }
+
+    @UseGuards(JwtUserGuard)
+    @Post('withdraw')
+    async withdraw(@Req() req, @Body() body: { amount: number; phoneNumber: string }) {
+        this.logger.log(`Received withdrawal request from user ${req.user.userId}: ${body.amount} to ${body.phoneNumber}`);
+        return await this.kkiapayService.requestWithdrawal(req.user.userId, body.amount, body.phoneNumber);
+    }
 }
