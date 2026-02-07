@@ -212,85 +212,82 @@ export class KkiapayService {
             throw new ConflictException('This provider transaction was already credited');
         }
 
-        const session = await this.transactionModel.db.startSession();
-        let finalUser: User | null = null;
-        let finalTx: Transaction | null = null;
+        // NOTE: Transactions removed because MongoDB standalone instance does not support them
+        // We will do this sequentially. It is not ACID but works for this environment.
 
-        try {
-            await session.withTransaction(async () => {
-                const tx = await this.transactionModel.findOne({
-                    _id: intent._id,
-                    userId,
-                    referenceId: normalizedReferenceId,
-                    type: 'DEPOSIT',
-                    method: 'KKIAPAY',
-                }).session(session);
+        const tx = await this.transactionModel.findOne({
+            _id: intent._id,
+            userId,
+            referenceId: normalizedReferenceId,
+            type: 'DEPOSIT',
+            method: 'KKIAPAY',
+        });
 
-                if (!tx) {
-                    throw new NotFoundException('Deposit intent not found');
-                }
-
-                if (tx.status === 'SUCCESS') {
-                    finalUser = await this.findUserById(userId, session);
-                    finalTx = tx;
-                    return;
-                }
-
-                if (tx.providerTransactionId && tx.providerTransactionId !== normalizedTransactionId) {
-                    throw new ConflictException('Intent is already linked to a different provider transaction');
-                }
-
-                const duplicate = await this.transactionModel.findOne({
-                    type: 'DEPOSIT',
-                    method: 'KKIAPAY',
-                    status: 'SUCCESS',
-                    providerTransactionId: normalizedTransactionId,
-                    _id: { $ne: tx._id },
-                }).session(session);
-                if (duplicate) {
-                    throw new ConflictException('This provider transaction was already credited');
-                }
-
-                const updatedUser = await this.userModel.findByIdAndUpdate(
-                    userId,
-                    { $inc: { balance: expectedAmount } },
-                    { new: true, session },
-                );
-
-                if (!updatedUser) {
-                    throw new NotFoundException('User not found');
-                }
-
-                tx.status = 'SUCCESS';
-                tx.amount = expectedAmount;
-                tx.providerTransactionId = normalizedTransactionId;
-                tx.verifiedAt = new Date();
-                tx.adminNote = 'Verified with Kkiapay and credited';
-                await tx.save({ session });
-
-                finalUser = updatedUser;
-                finalTx = tx;
-            });
-        } catch (error) {
-            if (error instanceof BadRequestException || error instanceof ConflictException || error instanceof NotFoundException) {
-                throw error;
-            }
-
-            this.logger.error(`Failed to credit Kkiapay deposit ref=${normalizedReferenceId}: ${error.message}`);
-            await this.transactionModel.updateOne(
-                { _id: intent._id, status: { $ne: 'SUCCESS' } },
-                {
-                    $set: {
-                        status: 'FAILED',
-                        providerTransactionId: normalizedTransactionId,
-                        adminNote: `Atomic credit failed: ${error.message}`,
-                    },
-                },
-            );
-            throw new InternalServerErrorException(`Failed to credit user account: ${error.message}`);
-        } finally {
-            await session.endSession();
+        if (!tx) {
+            throw new NotFoundException('Deposit intent not found');
         }
+
+        if (tx.status === 'SUCCESS') {
+            const finalUser = await this.findUserById(userId);
+            return {
+                status: 'success',
+                message: 'Deposit already processed',
+                referenceId: normalizedReferenceId,
+                transactionId: intent.providerTransactionId || normalizedTransactionId,
+                amount: intent.amount,
+                user: finalUser ? this.toUserResponse(finalUser) : null,
+                transaction: this.toTransactionResponse(tx),
+            };
+        }
+
+        if (tx.providerTransactionId && tx.providerTransactionId !== normalizedTransactionId) {
+            throw new ConflictException('Intent is already linked to a different provider transaction');
+        }
+
+        const duplicate = await this.transactionModel.findOne({
+            type: 'DEPOSIT',
+            method: 'KKIAPAY',
+            status: 'SUCCESS',
+            providerTransactionId: normalizedTransactionId,
+            _id: { $ne: tx._id },
+        });
+        if (duplicate) {
+            throw new ConflictException('This provider transaction was already credited');
+        }
+
+        // 1. Mark transaction as SUCCESS first (idempotency key) - if this succeeds but balance fails, we can reconcile later
+        tx.status = 'SUCCESS';
+        tx.amount = expectedAmount;
+        tx.providerTransactionId = normalizedTransactionId;
+        tx.verifiedAt = new Date();
+        tx.adminNote = 'Verified with Kkiapay and credited';
+        await tx.save();
+
+        // 2. Update user balance
+        let updatedUser;
+        try {
+            updatedUser = await this.userModel.findByIdAndUpdate(
+                userId,
+                { $inc: { balance: expectedAmount } },
+                { new: true },
+            );
+        } catch (err) {
+            this.logger.error(`CRITICAL: Transaction marked SUCCESS but balance update failed for user ${userId}. Amount: ${expectedAmount}. Error: ${err.message}`);
+            // In a real production system without transactions, we would need a reconciliation job.
+            // For now, we revert the transaction status to prevent "free money" confusion, OR keep it success and alert admin.
+            // Reverting is safer for consistency:
+            tx.status = 'FAILED';
+            tx.adminNote = `Balance update failed: ${err.message}`;
+            await tx.save();
+            throw new InternalServerErrorException('Failed to update user balance');
+        }
+
+        if (!updatedUser) {
+            throw new NotFoundException('User not found');
+        }
+
+        let finalUser = updatedUser;
+        let finalTx = tx;
 
         if (!finalUser) {
             finalUser = await this.findUserById(userId);
@@ -427,27 +424,32 @@ export class KkiapayService {
         }
 
         const expectedCurrency = this.configService.get<string>('KKIAPAY_CURRENCY') || 'XOF';
-        const session = await this.transactionModel.db.startSession();
-        let finalUser: User | null = null;
-        let finalTx: Transaction | null = null;
+        // NOTE: Transactions removed because MongoDB standalone instance does not support them.
+        // We use sequential operations: 1. Deduct balance, 2. Create transaction.
+
+        let updatedUser;
+        let newTx;
 
         try {
-            await session.withTransaction(async () => {
-                const updatedUser = await this.userModel.findOneAndUpdate(
-                    { _id: userId, balance: { $gte: normalizedAmount } },
-                    { $inc: { balance: -normalizedAmount } },
-                    { new: true, session },
-                );
+            // 1. Deduct balance first (atomic operation on document)
+            updatedUser = await this.userModel.findOneAndUpdate(
+                { _id: userId, balance: { $gte: normalizedAmount } },
+                { $inc: { balance: -normalizedAmount } },
+                { new: true }
+            );
 
-                if (!updatedUser) {
-                    const user = await this.findUserById(userId, session);
-                    if (!user) {
-                        throw new NotFoundException('User not found');
-                    }
-                    throw new BadRequestException('Insufficient balance');
+            if (!updatedUser) {
+                // check if user exists at all
+                const userExists = await this.userModel.exists({ _id: userId });
+                if (!userExists) {
+                    throw new NotFoundException('User not found');
                 }
+                throw new BadRequestException('Insufficient balance');
+            }
 
-                const newTx = new this.transactionModel({
+            // 2. Create the transaction record
+            try {
+                newTx = new this.transactionModel({
                     userId,
                     userName: `${updatedUser.firstName} ${updatedUser.lastName}`.trim() || 'Unknown',
                     type: 'WITHDRAW',
@@ -460,21 +462,25 @@ export class KkiapayService {
                     adminNote: 'Withdrawal requested',
                     timestamp: new Date(),
                 });
-                await newTx.save({ session });
+                await newTx.save();
+            } catch (txError) {
+                // If transaction creation fails, we MUST refund the user
+                this.logger.error(`CRITICAL: Withdrawal transaction creation failed after balance deduction for user ${userId}. Refunding... Error: ${txError.message}`);
+                await this.userModel.findByIdAndUpdate(userId, { $inc: { balance: normalizedAmount } });
+                throw new InternalServerErrorException('Failed to create withdrawal record. Balance successfully refunded.');
+            }
 
-                finalUser = updatedUser;
-                finalTx = newTx;
-            });
         } catch (error) {
-            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+            if (error instanceof BadRequestException || error instanceof NotFoundException || error instanceof InternalServerErrorException) {
                 throw error;
             }
 
             this.logger.error(`Failed to process withdrawal request user=${userId}: ${error.message}`);
-            throw new InternalServerErrorException('Failed to process withdrawal request');
-        } finally {
-            await session.endSession();
+            throw new InternalServerErrorException(`Failed to process withdrawal request: ${error.message}`);
         }
+
+        let finalUser = updatedUser;
+        let finalTx = newTx;
 
         if (!finalUser) {
             finalUser = await this.findUserById(userId);
