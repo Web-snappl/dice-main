@@ -13,6 +13,7 @@ import { AdminModule } from './admin/admin.module';
 import { StripeModule } from './modules/stripe/stripe.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { MtnModule } from './modules/mtn/mtn.module';
+import { KkiapayModule } from './modules/kkiapay/kkiapay.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { MtnModule } from './modules/mtn/mtn.module';
     StripeModule,
     TransactionsModule,
     MtnModule,
+    KkiapayModule,
   ],
 
 })

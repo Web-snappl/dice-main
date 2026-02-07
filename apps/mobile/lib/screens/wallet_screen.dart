@@ -4,6 +4,7 @@ import '../utils/i18n.dart';
 import '../utils/app_theme.dart';
 import '../widgets/app_button.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:kkiapay_flutter_sdk/kkiapay_flutter_sdk.dart';
 import '../utils/api.dart';
 
 class WalletScreen extends StatelessWidget {
@@ -213,28 +214,50 @@ class WalletScreen extends StatelessWidget {
       builder: (ctx) => _PaymentSheet(
         title: t('Deposit with MTN MoMo'),
         buttonText: t('Deposit'),
-        onSubmit: (phone, amount) async {
+        onSubmit: (phone, amount) {
           Navigator.pop(ctx);
-          try {
-            await WalletApi.initiateDeposit(phone: phone, amount: amount);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(t('Mtn Deposit Success')),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(t('Mtn Error Generic')),
-                  backgroundColor: AppColors.danger,
-                ),
-              );
-            }
-          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => KKiaPay(
+                amount: amount.toInt(),
+                phone: phone,
+                data: 'Deposit',
+                sandbox: true,
+                apikey: 'INSERT_PUBLIC_KEY_HERE', // TODO: Get from env
+                callback: (response, context) async {
+                  Navigator.pop(context); // Close Kkiapay
+                  if (response['status'] == 'PAYMENT_SUCCESS') {
+                    try {
+                      await WalletApi.verifyKkiapayTransaction(
+                        transactionId: response['transactionId'],
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(t('Deposit Successful')),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                        // Trigger user refresh logic if available
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(t('Verification Failed')),
+                            backgroundColor: AppColors.danger,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+                theme: AppColors.primary.value.toRadixString(16).substring(2),
+                name: user.firstName,
+              ),
+            ),
+          );
         },
       ),
     );

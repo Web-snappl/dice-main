@@ -431,4 +431,17 @@ class WalletApi {
       requiresAuth: true,
     );
   }
+
+  static Future<Map<String, dynamic>> verifyKkiapayTransaction({
+    required String transactionId,
+  }) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    return await ApiClient.fetchFromBackend(
+      '$baseUrl/api/kkiapay/verify',
+      null,
+      json.encode({'transactionId': transactionId}),
+      'POST',
+      requiresAuth: true,
+    );
+  }
 }

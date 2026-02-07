@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, BadRequestException } from '@nestjs/common';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { TransactionsService } from '../transactions/transactions.service';
@@ -45,35 +45,40 @@ export class MtnService {
                 adminNote: `Phone: ${userPhone}`
             });
 
-            await axios.post(
-                `${this.baseUrl}/collection/v1_0/requesttopay`,
-                {
-                    amount: amount.toString(),
-                    currency: 'EUR', // Sandbox only supports EUR
-                    externalId: referenceId,
-                    payer: {
-                        partyIdType: 'MSISDN',
-                        partyId: userPhone
-                    },
-                    payerMessage: 'Deposit to Dice App',
-                    payeeNote: 'Deposit'
-                };
+            const payload = {
+                amount: amount.toString(),
+                currency: 'EUR', // Sandbox only supports EUR
+                externalId: referenceId,
+                payer: {
+                    partyIdType: 'MSISDN',
+                    partyId: userPhone
+                },
+                payerMessage: 'Deposit to Dice App',
+                payeeNote: 'Deposit'
+            };
 
             this.logger.log(`[MTN Request] Payload: ${JSON.stringify(payload)}`);
 
-            await axios.post(
-                `${this.baseUrl}/collection/v1_0/requesttopay`,
-                payload,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'X-Reference-Id': referenceId,
-                        'X-Target-Environment': 'sandbox',
-                        'Ocp-Apim-Subscription-Key': this.colSubKey,
-                        'X-Callback-Url': 'https://api-production-6de9.up.railway.app/api/mtn/webhook'
+            try {
+                await axios.post(
+                    `${this.baseUrl}/collection/v1_0/requesttopay`,
+                    payload,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'X-Reference-Id': referenceId,
+                            'X-Target-Environment': 'sandbox',
+                            'Ocp-Apim-Subscription-Key': this.colSubKey,
+                            'X-Callback-Url': 'https://api-production-6de9.up.railway.app/api/mtn/webhook',
+                            'Content-Type': 'application/json'
+                        }
                     }
-                }
-            );
+                );
+            } catch (error) {
+                this.logger.error(`[MTN Error] Data: ${JSON.stringify(error.response?.data)}`);
+                this.logger.error(`[MTN Error] Status: ${error.response?.status}`);
+                throw new BadRequestException('MTN Payment Request Failed');
+            }
 
             return {
                 status: 'PENDING',
