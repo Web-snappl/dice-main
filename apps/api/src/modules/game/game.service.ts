@@ -66,7 +66,26 @@ export class GameService {
             return user
         })
         const sortedList = _.orderBy(newUserList, ['rollDiceResult'], ['desc'])
-        sortedList[0].winner = true
+
+        // Detect Draw: If top 2 players have same score
+        if (sortedList.length > 1 && sortedList[0].rollDiceResult === sortedList[1].rollDiceResult) {
+            console.log('[GameService] Draw detected! Top two players have same score.');
+            // Mark the tied players as draws? Or just don't pick a winner.
+            // For Dice Duel (2 players usually), both are draws.
+            // If multiplayer (3+), only top n tied are draws?
+            // "Casino Dice" context implies 1v1 usually or 1vHouse.
+            // Let's mark ALL tied top scorers as isDraw.
+            const topScore = sortedList[0].rollDiceResult;
+            sortedList.forEach(u => {
+                if (u.rollDiceResult === topScore) {
+                    u.isDraw = true;
+                    u.winner = false; // Ensure not winner
+                }
+            });
+        } else {
+            sortedList[0].winner = true
+        }
+
         return sortedList
     }
 
@@ -150,12 +169,17 @@ export class GameService {
                 const winningBet = Number(bets[diceResult.toString()] || 0);
                 if (winningBet > 0) {
                     isWinner = true;
+                    // Formula: Gross Win including stake return
                     const grossWin = winningBet * payoutMultiplier;
                     const fee = grossWin * commissionRate;
                     winnings = grossWin - fee;
                 }
             }
 
+            // LOGIC: Deduct total bet, add winnings (if any)
+            // If Loss: Change = 0 - 100 = -100
+            // If Win: Change = (500 - 25) - 100 = 375
+            // Net result: OldBalance - Bet + Winnings
             const balanceChange = winnings - totalBet;
 
             try {
@@ -244,20 +268,31 @@ export class GameService {
             }
 
             const isWinner = user.winner === true;
-            let balanceChange: number;
+            // Need to check isDraw if added to UserList type or just check property
+            const isDraw = (user as any).isDraw === true;
+
+            // Logic: Always deduct bet contribution first in calculation
+            // Net Change = Winnings (if any) - Bet Amount
+            let balanceChange = -betAmount;
 
             if (isWinner) {
                 const grossPayout = betAmount * payoutMultiplier;
                 const fee = grossPayout * commissionRate;
                 const netPayout = grossPayout - fee;
-                // Winner balance change is net payout minus own stake.
-                balanceChange = netPayout - betAmount;
+
+                // Add payout to the negative stance
+                balanceChange += netPayout;
+
                 console.log(
-                    `[GameService] Winner ${user.uid}: game=${gameId} bet=${betAmount}, payoutMultiplier=${payoutMultiplier}, commission=${commissionPercent}%, netChange=${balanceChange}`,
+                    `[GameService] Winner ${user.uid}: game=${gameId} bet=${betAmount}, payoutMultiplier=${payoutMultiplier}, commission=${commissionPercent}%, netPayout=${netPayout}, netChange=${balanceChange}`,
                 );
+            } else if (isDraw) {
+                // Draw Logic: Refund Bet.
+                // balanceChange was -betAmount. Adding betAmount makes it 0.
+                balanceChange += betAmount;
+                console.log(`[GameService] Draw ${user.uid}: game=${gameId}. Bet refunded. Net Change: 0`);
             } else {
-                // Loser loses their bet
-                balanceChange = -betAmount;
+                // Loser just loses bet (balanceChange = -betAmount)
                 console.log(`[GameService] Loser ${user.uid}: game=${gameId}, lost bet ${betAmount}`);
             }
 
@@ -334,7 +369,7 @@ export class GameService {
                 maxBet: 50000,
                 minPlayers: 2,
                 maxPlayers: 6,
-                payoutMultiplier: 5,
+                payoutMultiplier: 5, // Updated to 5x per user request
                 dailyBetLimit: null,
                 maintenanceMode: false,
                 maintenanceMessage: '',

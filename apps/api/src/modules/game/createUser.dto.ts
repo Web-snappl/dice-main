@@ -23,6 +23,10 @@ export class UserDto {
     winner?: boolean
 
     @IsOptional()
+    @IsBoolean()
+    isDraw?: boolean
+
+    @IsOptional()
     @IsString({ each: true })
     winsAgainst?: string[]
 

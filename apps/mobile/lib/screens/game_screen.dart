@@ -132,27 +132,44 @@ class _GameScreenState extends State<GameScreen> {
       _gameState = 'MATCHING';
     });
 
+    // Optimistic Balance Deduction: Immediately deduct bet
+    widget.onUserUpdate(
+      widget.user.copyWith(
+        wallet: widget.user.wallet.copyWith(
+          balance: widget.user.wallet.balance - totalBetRequired,
+        ),
+        stats: widget.user.stats.copyWith(
+          gamesPlayed: widget.user.stats.gamesPlayed + 1,
+          totalWagered: widget.user.stats.totalWagered + totalBetRequired,
+        ),
+      ),
+    );
+
     Future.delayed(const Duration(milliseconds: 1500), () {
-      _executeGameLogic();
+      // Force Rebuild
+      _executeGameLogic(totalBetRequired);
     });
   }
 
-  Future<void> _executeGameLogic() async {
+  Future<void> _executeGameLogic(double deductedAmount) async {
     setState(() {
       _gameState = 'FOUND';
     });
 
     Future.delayed(const Duration(milliseconds: 1000), () {
-      setState(() {
-        _gameState = 'ROLLING';
-      });
-      _performRollSequence();
+      if (mounted) {
+        setState(() {
+          _gameState = 'ROLLING';
+        });
+        _performRollSequence(deductedAmount);
+      }
     });
   }
 
-  Future<void> _performRollSequence() async {
+  Future<void> _performRollSequence(double deductedAmount) async {
     final activeDuels = widget.playerCount >= 3 ? 2 : 1;
-    final totalBetRequired = widget.betAmount * activeDuels;
+    // We use the passed deductedAmount which was already calculated and deducted
+    final totalBetRequired = deductedAmount;
 
     List<dynamic> results;
     try {
@@ -169,6 +186,19 @@ class _GameScreenState extends State<GameScreen> {
         setState(() {
           _gameState = 'READY';
         });
+        
+        // Rollback optimistic deduction on error
+        widget.onUserUpdate(
+          widget.user.copyWith(
+            wallet: widget.user.wallet.copyWith(
+              balance: widget.user.wallet.balance + totalBetRequired,
+            ),
+            stats: widget.user.stats.copyWith(
+              gamesPlayed: widget.user.stats.gamesPlayed - 1, // Optional: revert stats or keep as attempted
+              totalWagered: widget.user.stats.totalWagered - totalBetRequired,
+            ),
+          ),
+        );
       }
       _showGameError(e.toString().replaceFirst('Exception: ', ''));
       return;
@@ -203,17 +233,8 @@ class _GameScreenState extends State<GameScreen> {
       }
     }
 
-    widget.onUserUpdate(
-      widget.user.copyWith(
-        wallet: widget.user.wallet.copyWith(
-          balance: widget.user.wallet.balance - totalBetRequired,
-        ),
-        stats: widget.user.stats.copyWith(
-          gamesPlayed: widget.user.stats.gamesPlayed + 1,
-          totalWagered: widget.user.stats.totalWagered + totalBetRequired,
-        ),
-      ),
-    );
+    // Removed redundant balance deduction here since it was done optimistically
+
 
     if (!mounted) {
       return;
