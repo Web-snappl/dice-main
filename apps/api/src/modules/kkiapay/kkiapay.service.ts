@@ -562,10 +562,10 @@ export class KkiapayService {
     private async verifyTransactionWithProvider(transactionId: string): Promise<ProviderVerificationPayload> {
         const publicKey = this.configService.get<string>('KKIAPAY_PUBLIC_KEY');
         const privateKey = this.configService.get<string>('KKIAPAY_PRIVATE_KEY');
-        const secretKey = this.configService.get<string>('KKIAPAY_SECRET_KEY');
+        const secretKey = this.configService.get<string>('KKIAPAY_SECRET');
 
         if (!publicKey || !privateKey || !secretKey) {
-            this.logger.error('KKIAPAY_PUBLIC_KEY, KKIAPAY_PRIVATE_KEY and KKIAPAY_SECRET_KEY must be configured');
+            this.logger.error('KKIAPAY_PUBLIC_KEY, KKIAPAY_PRIVATE_KEY and KKIAPAY_SECRET must be configured');
             throw new InternalServerErrorException('Payment provider is not configured');
         }
 
