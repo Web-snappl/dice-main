@@ -112,14 +112,30 @@ export class KkiapayService {
                 throw new NotFoundException('User not found');
             }
 
+
             // c. Update Transaction to SUCCESS
             txRecord.status = 'SUCCESS';
             await txRecord.save();
 
             this.logger.log(`Successfully credited ${amount} CFA to user ${userId}. New Balance: ${updatedUser.balance}`);
 
+            // Return full user object for immediate frontend update
+            const userResponse = {
+                uid: updatedUser._id.toString(),
+                email: updatedUser.email,
+                firstName: updatedUser.firstName,
+                lastName: updatedUser.lastName,
+                phoneNumber: updatedUser.phoneNumber,
+                role: updatedUser.role,
+                balance: updatedUser.balance || 0,
+                status: updatedUser.status,
+                stripeAccountId: updatedUser.stripeAccountId,
+                isStripeConnected: updatedUser.isStripeConnected,
+            };
+
             return {
                 status: 'success',
+                user: userResponse,
                 newBalance: updatedUser.balance,
                 amount: amount
             };

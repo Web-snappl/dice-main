@@ -37,6 +37,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 # Copy built client static assets into public/
 COPY --from=builder /app/apps/web-landing/dist/ ./apps/api/public/
 
+# Copy built admin panel static assets into public/admin/
+COPY --from=builder /app/apps/web-admin/dist/ ./apps/api/public/admin/
+
 WORKDIR /app/apps/api
 EXPOSE 8080
 CMD ["node", "dist/main.js"]

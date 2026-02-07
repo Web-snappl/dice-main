@@ -229,19 +229,30 @@ class WalletScreen extends StatelessWidget {
                   Navigator.pop(context); // Close Kkiapay
                   if (response['status'] == 'PAYMENT_SUCCESS') {
                     try {
+                      debugPrint('[WalletScreen] Verifying transaction: ${response['transactionId']}');
+                      
                       // 1. Verify transaction on backend
-                      await WalletApi.verifyKkiapayTransaction(
+                      final verifyResponse = await WalletApi.verifyKkiapayTransaction(
                         transactionId: response['transactionId'],
                       );
                       
-                      // 2. Fetch updated user data (including new balance)
-                      final userData = await AuthApi.getMe(); // Returns Map<String, dynamic>
-                      
                       if (context.mounted) {
-                        // 3. Update local state
-                        // We assume userData is the full user object from /auth/me
-                        final updatedUser = User.fromJson(userData);
-                        setUser(updatedUser);
+                        debugPrint('[WalletScreen] Verification success. Updating user state.');
+                        
+                        // 2. Update local state from response (Immediate update)
+                        if (verifyResponse['user'] != null) {
+                           final updatedUser = User.fromJson(verifyResponse['user']);
+                           debugPrint('[WalletScreen] New Balance: ${updatedUser.wallet.balance}');
+                           setUser(updatedUser);
+                        } else {
+                           // Fallback to getMe if user object missing (should not happen with new API)
+                           debugPrint('[WalletScreen] User object missing in response, fetching /me');
+                           final userData = await AuthApi.getMe();
+                           setUser(User.fromJson(userData));
+                        }
+                        
+                        // 3. Refresh separate transaction list if needed
+                        // (Optional: addTransaction(Transaction.fromJson(...)) if returned)
                         
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -251,6 +262,7 @@ class WalletScreen extends StatelessWidget {
                         );
                       }
                     } catch (e) {
+                      debugPrint('[WalletScreen] Verification Error: $e');
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

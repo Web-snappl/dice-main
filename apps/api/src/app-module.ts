@@ -27,8 +27,13 @@ import { KkiapayModule } from './modules/kkiapay/kkiapay.module';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'client', 'dist'),
-      exclude: ['/api{/*path}'],
+      exclude: ['/api{/*path}', '/admin{/*path}'],
       renderPath: '/',
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'api', 'public', 'admin'),
+      serveRoot: '/admin',
+      exclude: ['/api{/*path}'],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
