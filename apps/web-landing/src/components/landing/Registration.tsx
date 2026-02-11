@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRegistration } from '@/contexts/RegistrationContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle2, Tag } from 'lucide-react';
+import { CheckCircle2, Tag, XCircle, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -25,6 +25,27 @@ const Registration = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPromoField, setShowPromoField] = useState(false);
+  const [promoStatus, setPromoStatus] = useState<{
+    checking: boolean;
+    valid?: boolean;
+    bonusAmount?: number;
+    reason?: string;
+  }>({ checking: false });
+  const promoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const validatePromoCode = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setPromoStatus({ checking: false });
+      return;
+    }
+    setPromoStatus({ checking: true });
+    try {
+      const result = await api.auth.validatePromoCode(code.trim());
+      setPromoStatus({ checking: false, ...result });
+    } catch {
+      setPromoStatus({ checking: false, valid: false, reason: 'Network error' });
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -36,6 +57,16 @@ const Registration = () => {
         delete newErrors[name];
         return newErrors;
       });
+    }
+    // Debounced promo code validation
+    if (name === 'promoCode') {
+      if (promoDebounceRef.current) clearTimeout(promoDebounceRef.current);
+      if (!value.trim()) {
+        setPromoStatus({ checking: false });
+      } else {
+        setPromoStatus({ checking: true });
+        promoDebounceRef.current = setTimeout(() => validatePromoCode(value), 500);
+      }
     }
   };
 
@@ -227,13 +258,34 @@ const Registration = () => {
                       <Tag className="w-3.5 h-3.5" />
                       {t('register.promoCode.label')}
                     </label>
-                    <Input
-                      name="promoCode"
-                      placeholder={t('register.promoCode.placeholder')}
-                      value={formData.promoCode}
-                      onChange={handleChange}
-                      className="uppercase"
-                    />
+                    <div className="relative">
+                      <Input
+                        name="promoCode"
+                        placeholder={t('register.promoCode.placeholder')}
+                        value={formData.promoCode}
+                        onChange={handleChange}
+                        className={`uppercase pr-10 ${promoStatus.valid === true ? 'border-green-500' :
+                            promoStatus.valid === false ? 'border-destructive' : ''
+                          }`}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {promoStatus.checking && (
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
+                        {!promoStatus.checking && promoStatus.valid === true && (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        )}
+                        {!promoStatus.checking && promoStatus.valid === false && (
+                          <XCircle className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                    </div>
+                    {promoStatus.valid === true && promoStatus.bonusAmount && (
+                      <p className="text-xs text-green-500">+{promoStatus.bonusAmount} CFA bonus!</p>
+                    )}
+                    {promoStatus.valid === false && promoStatus.reason && (
+                      <p className="text-xs text-destructive">{promoStatus.reason}</p>
+                    )}
                   </div>
                 )}
               </div>

@@ -55,6 +55,29 @@ export class PromoCodesService implements OnModuleInit {
     }
 
     /**
+     * Validates a promo code WITHOUT incrementing usage.
+     * Returns { valid, bonusAmount, reason? }.
+     */
+    async validate(code: string): Promise<{ valid: boolean; bonusAmount?: number; reason?: string }> {
+        const promo = await this.promoCodeModel.findOne({ code: code.toUpperCase() }).exec();
+
+        if (!promo) {
+            return { valid: false, reason: 'Invalid promo code' };
+        }
+        if (!promo.isActive) {
+            return { valid: false, reason: 'Promo code is no longer active' };
+        }
+        if (promo.expiresAt && new Date() > promo.expiresAt) {
+            return { valid: false, reason: 'Promo code has expired' };
+        }
+        if (promo.maxUses > 0 && promo.currentUses >= promo.maxUses) {
+            return { valid: false, reason: 'Promo code usage limit reached' };
+        }
+
+        return { valid: true, bonusAmount: promo.bonusAmount };
+    }
+
+    /**
      * Validates a promo code and increments its usage.
      * Returns the bonus amount if valid, throws otherwise.
      */

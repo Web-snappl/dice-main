@@ -17,6 +17,10 @@ export const api = {
             }
 
             return response.json();
+        },
+        validatePromoCode: async (code: string): Promise<{ valid: boolean; bonusAmount?: number; reason?: string }> => {
+            const response = await fetch(`${API_URL}/auth/public/validate-promo/${encodeURIComponent(code)}`);
+            return response.json();
         }
     }
 };

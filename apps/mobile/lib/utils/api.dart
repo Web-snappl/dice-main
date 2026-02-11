@@ -231,6 +231,23 @@ class AuthApi {
     throw Exception('Invalid signup response');
   }
 
+  /// Validate a promo code without using it (public, no auth)
+  static Future<Map<String, dynamic>> validatePromoCode(String code) async {
+    final baseUrl = await ApiClient.getBaseUrl();
+    try {
+      final response = await ApiClient.fetchFromBackend(
+        '$baseUrl/api/auth/public/validate-promo/${Uri.encodeComponent(code.toUpperCase())}',
+        null,
+        null,
+        'GET',
+      );
+      if (response is Map<String, dynamic>) return response;
+      return {'valid': false, 'reason': 'Invalid response'};
+    } catch (e) {
+      return {'valid': false, 'reason': 'Network error'};
+    }
+  }
+
   /// Get current user profile (requires auth)
   static Future<Map<String, dynamic>> getMe() async {
     final baseUrl = await ApiClient.getBaseUrl();

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, ValidationPipe, Query, Headers, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, ValidationPipe, Query, Headers, UseGuards, Req, Param } from '@nestjs/common';
 import { AuthService, UserLoginResponse } from './auth.service';
 import { LoginDto, UserDto, UserResponse } from './createUser.dto';
 import { JwtUserGuard } from './guards/jwt-user.guard';
 import { Request } from 'express';
+import { PromoCodesService } from '../../admin/services/promo-codes.service';
 
 interface RequestWithUser extends Request {
     user: {
@@ -17,7 +18,10 @@ interface RequestWithUser extends Request {
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+    constructor(
+        private readonly authService: AuthService,
+        private readonly promoCodesService: PromoCodesService,
+    ) { }
 
     @Post('signup')
     signup(
@@ -45,6 +49,11 @@ export class AuthController {
             userDto.phoneNumber,
             userDto.promoCode,
         );
+    }
+
+    @Get('public/validate-promo/:code')
+    validatePromoCode(@Param('code') code: string) {
+        return this.promoCodesService.validate(code);
     }
 
     @Get('login')

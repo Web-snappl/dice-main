@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,7 @@ import '../providers/app_provider.dart';
 import '../models/types.dart';
 import '../widgets/app_button.dart';
 import '../utils/audio.dart';
+import '../utils/api.dart';
 
 class RegisterScreen extends StatefulWidget {
   final Future<bool> Function(Map<String, dynamic>) onRegister;
@@ -33,6 +35,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _showPromoField = false;
   String? _error;
+  
+  // Promo code validation state
+  bool _promoChecking = false;
+  bool? _promoValid;
+  int? _promoBonusAmount;
+  String? _promoReason;
+  Timer? _promoDebounce;
 
   @override
   void dispose() {
@@ -42,6 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _promoCodeController.dispose();
+    _promoDebounce?.cancel();
     super.dispose();
   }
 
@@ -53,6 +63,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _emailController.text.trim().isNotEmpty &&
       _phoneController.text.trim().isNotEmpty &&
       _passwordController.text.trim().isNotEmpty;
+
+  void _onPromoCodeChanged(String value) {
+    _promoDebounce?.cancel();
+    final code = value.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _promoChecking = false;
+        _promoValid = null;
+        _promoBonusAmount = null;
+        _promoReason = null;
+      });
+      return;
+    }
+    setState(() => _promoChecking = true);
+    _promoDebounce = Timer(const Duration(milliseconds: 500), () async {
+      final result = await AuthApi.validatePromoCode(code);
+      if (mounted) {
+        setState(() {
+          _promoChecking = false;
+          _promoValid = result['valid'] == true;
+          _promoBonusAmount = result['bonusAmount'] is num ? (result['bonusAmount'] as num).toInt() : null;
+          _promoReason = result['reason'];
+        });
+      }
+    });
+  }
 
   Future<void> _handleRegister() async {
     await AudioManager().play(SoundType.click);
@@ -244,10 +280,81 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         )
                       else
-                        _buildTextField(
-                          controller: _promoCodeController,
-                          label: t('Promo Code'),
-                          icon: Icons.local_offer_outlined,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _promoCodeController,
+                              textCapitalization: TextCapitalization.characters,
+                              style: AppTextStyles.body(color: AppColors.textMain),
+                              onChanged: (val) {
+                                setState(() {});
+                                _onPromoCodeChanged(val);
+                              },
+                              decoration: InputDecoration(
+                                labelText: t('Promo Code'),
+                                labelStyle: AppTextStyles.label(color: AppColors.textMuted),
+                                prefixIcon: Icon(Icons.local_offer_outlined, color: AppColors.textMuted, size: 20),
+                                suffixIcon: _promoChecking
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: SizedBox(
+                                          width: 20, height: 20,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      )
+                                    : _promoValid == true
+                                        ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
+                                        : _promoValid == false
+                                            ? const Icon(Icons.cancel, color: Colors.red, size: 22)
+                                            : null,
+                                filled: true,
+                                fillColor: AppColors.background,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                  borderSide: BorderSide(
+                                    color: _promoValid == true ? Colors.green
+                                         : _promoValid == false ? Colors.red
+                                         : AppColors.border,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                  borderSide: BorderSide(
+                                    color: _promoValid == true ? Colors.green
+                                         : _promoValid == false ? Colors.red
+                                         : AppColors.border,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                  borderSide: BorderSide(
+                                    color: _promoValid == true ? Colors.green
+                                         : _promoValid == false ? Colors.red
+                                         : AppColors.primary,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              ),
+                            ),
+                            if (_promoValid == true && _promoBonusAmount != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4, left: 4),
+                                child: Text(
+                                  '+$_promoBonusAmount CFA bonus!',
+                                  style: AppTextStyles.body(color: Colors.green, fontSize: 12),
+                                ),
+                              ),
+                            if (_promoValid == false && _promoReason != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4, left: 4),
+                                child: Text(
+                                  _promoReason!,
+                                  style: AppTextStyles.body(color: Colors.red, fontSize: 12),
+                                ),
+                              ),
+                          ],
                         ),
                       const SizedBox(height: 24),
                       
