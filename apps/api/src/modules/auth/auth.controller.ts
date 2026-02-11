@@ -56,9 +56,9 @@ export class AuthController {
         return this.promoCodesService.validate(code);
     }
 
-    @Get('login')
+    @Post('login')
     login(
-        @Query(ValidationPipe) userDto: LoginDto,
+        @Body(ValidationPipe) userDto: LoginDto,
         @Headers('authorization') authHeader: string,
     ): Promise<UserLoginResponse> {
         return this.authService.login(authHeader, userDto.phoneNumber, userDto.password, userDto.email);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check, DollarSign, AlertCircle } from 'lucide-react';
+import { Search, MoreVertical, Eye, Ban, Undo2, UserX, Check, DollarSign, AlertCircle, X } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -130,6 +130,23 @@ export function UsersPage() {
                     />
                 </div>
                 <div className="flex gap-3">
+                    {(search || roleFilter || statusFilter) && (
+                        <button
+                            onClick={() => { setSearch(''); setRoleFilter(''); setStatusFilter(''); setPage(1); }}
+                            className="btn-secondary px-3 text-red-400 hover:text-red-300 flex items-center gap-2"
+                            title={t('common.clearFilters') || "Clear Filters"}
+                        >
+                            <X className="w-4 h-4" />
+                            <span className="hidden md:inline">Clear</span>
+                        </button>
+                    )}
+                    <button
+                        onClick={loadUsers}
+                        className="btn-secondary px-4 flex items-center gap-2"
+                        title={t('common.refresh') || "Refresh"}
+                    >
+                        <Undo2 className="w-4 h-4" />
+                    </button>
                     <select
                         value={roleFilter}
                         onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}

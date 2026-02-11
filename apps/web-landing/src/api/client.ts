@@ -22,22 +22,13 @@ export interface User {
 
 const apiClient = {
     async login(params: LoginParams): Promise<User> {
-        const queryParams = new URLSearchParams();
-
-        if (params.email) {
-            queryParams.append('email', params.email);
-        }
-        if (params.phoneNumber) {
-            queryParams.append('phoneNumber', params.phoneNumber);
-        }
-        queryParams.append('password', params.password);
-
-        const response = await fetch(`${API_BASE_URL}/auth/login?${queryParams.toString()}`, {
-            method: 'GET',
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': API_SECRET,
             },
+            body: JSON.stringify(params),
         });
 
         if (!response.ok) {

@@ -149,26 +149,22 @@ class AuthApi {
     String cleanIdentifier = identifier.trim();
     bool isEmail = cleanIdentifier.contains('@');
     
-    String queryParam;
+    final Map<String, String> body = {
+      'password': password,
+    };
+    
     if (isEmail) {
-      // It's an email - send as email parameter
-      // FORCE LOWERCASE: Key fix for mobile keyboard auto-capitalization
-      cleanIdentifier = cleanIdentifier.toLowerCase();
-      queryParam = 'email=${Uri.encodeComponent(cleanIdentifier)}';
+       body['email'] = cleanIdentifier.toLowerCase();
     } else {
-      // It's a phone number - clean and send as phoneNumber parameter
-      cleanIdentifier = cleanIdentifier.replaceAll(RegExp(r'\D'), '');
-      queryParam = 'phoneNumber=${Uri.encodeComponent(cleanIdentifier)}';
+       // cleanIdentifier already stripped of non-digits
+       body['phoneNumber'] = cleanIdentifier;
     }
 
-    // FORCE LOWERCASE: Ensure case-insensitivity on login
-    // String queryParam logic handles this above
-
     final response = await ApiClient.fetchFromBackend(
-      '$baseUrl/api/auth/login?$queryParam&password=${Uri.encodeComponent(password)}',
+      '$baseUrl/api/auth/login',
       null,
-      null,
-      'GET',
+      json.encode(body),
+      'POST',
     );
 
     // Store tokens securely
