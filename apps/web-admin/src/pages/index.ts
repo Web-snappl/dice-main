@@ -11,3 +11,4 @@ export { AuditLogPage } from './AuditLogPage';
 export { SettingsPage } from './SettingsPage';
 export { CommunicationPage } from './CommunicationPage';
 export { SupportPage } from './SupportPage';
+export { PromoCodesPage } from './PromoCodesPage';

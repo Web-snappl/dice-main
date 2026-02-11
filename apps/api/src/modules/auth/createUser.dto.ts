@@ -28,6 +28,10 @@ export class UserDto {
     @IsIn(['user', 'User', 'admin', 'Admin'], { message: 'role must be user or admin' })
     @IsOptional()
     role?: UserRole
+
+    @IsString()
+    @IsOptional()
+    promoCode?: string;
 }
 
 export class LoginDto {

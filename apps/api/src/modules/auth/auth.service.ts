@@ -1,4 +1,3 @@
-// src/modules/auth/auth.service.ts
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +8,7 @@ import { createHmac } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { SignOptions } from 'jsonwebtoken';
+import { PromoCodesService } from '../../admin/services/promo-codes.service';
 
 const SALT_ROUNDS = 12;
 
@@ -42,6 +42,7 @@ export class AuthService {
     constructor(
         @InjectModel('users') private readonly userModel: Model<User>,
         private readonly configService: ConfigService,
+        private readonly promoCodesService: PromoCodesService,
     ) { }
 
     // Legacy SHA-256 encryption (for migration)
@@ -121,8 +122,23 @@ export class AuthService {
         firstName: string,
         lastName: string,
         phoneNumber: string,
+        promoCode?: string,
     ): Promise<UserLoginResponse> {
         const user = await this._createUserAndReturn(email, password, firstName, lastName, phoneNumber, 'user');
+
+        // Apply promo code bonus if provided
+        let balance = user.balance || 0;
+        if (promoCode) {
+            try {
+                const bonusAmount = await this.promoCodesService.validateAndUse(promoCode);
+                balance += bonusAmount;
+                await this.userModel.findByIdAndUpdate(user._id, { balance }).exec();
+            } catch (error) {
+                // Don't fail registration if promo code is invalid — just skip the bonus
+                console.warn(`[AuthService] Promo code "${promoCode}" failed: ${error.message}`);
+            }
+        }
+
         const tokens = this.generateTokens(user);
 
         return {
@@ -134,7 +150,7 @@ export class AuthService {
                 lastName: user.lastName,
                 phoneNumber: user.phoneNumber,
                 role: user.role,
-                balance: user.balance || 0,
+                balance,
                 stripeAccountId: user.stripeAccountId,
                 isStripeConnected: user.isStripeConnected,
             },

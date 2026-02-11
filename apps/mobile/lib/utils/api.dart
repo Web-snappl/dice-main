@@ -192,22 +192,28 @@ class AuthApi {
     required String firstName,
     required String lastName,
     required String phone,
+    String? promoCode,
     String role = 'user',
   }) async {
     final baseUrl = await ApiClient.getBaseUrl();
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
 
+    final body = {
+      'email': email.trim().toLowerCase(),
+      'password': password,
+      'firstName': firstName,
+      'lastName': lastName,
+      'phoneNumber': cleanPhone,
+      'role': role,
+    };
+    if (promoCode != null && promoCode.isNotEmpty) {
+      body['promoCode'] = promoCode;
+    }
+
     final response = await ApiClient.fetchFromBackend(
       '$baseUrl/api/auth/public/signup',
       null,
-      json.encode({
-        'email': email.trim().toLowerCase(), // FORCE LOWERCASE: Ensure consistency with web
-        'password': password,
-        'firstName': firstName,
-        'lastName': lastName,
-        'phoneNumber': cleanPhone,
-        'role': role,
-      }),
+      json.encode(body),
       'POST',
     );
 

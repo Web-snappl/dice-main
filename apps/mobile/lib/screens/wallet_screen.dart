@@ -449,6 +449,7 @@ class WalletScreen extends StatelessWidget {
                 },
                 theme: AppColors.primary.toARGB32().toRadixString(16).substring(2),
                 name: user.name,
+                paymentMethods: const ["momo", "card"],
               ),
             ),
           );

@@ -43,6 +43,7 @@ export class AuthController {
             userDto.firstName,
             userDto.lastName,
             userDto.phoneNumber,
+            userDto.promoCode,
         );
     }
 

@@ -28,8 +28,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _promoCodeController = TextEditingController();
   
   bool _isLoading = false;
+  bool _showPromoField = false;
   String? _error;
 
   @override
@@ -39,6 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _promoCodeController.dispose();
     super.dispose();
   }
 
@@ -68,6 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
         'password': _passwordController.text,
+        if (_promoCodeController.text.trim().isNotEmpty)
+          'promoCode': _promoCodeController.text.trim().toUpperCase(),
       };
       await widget.onRegister(userData);
     } catch (e) {
@@ -217,6 +222,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         icon: Icons.lock_outline,
                         obscureText: true,
                       ),
+                      const SizedBox(height: 16),
+                      
+                      // Promo Code
+                      if (!_showPromoField)
+                        GestureDetector(
+                          onTap: () => setState(() => _showPromoField = true),
+                          child: Row(
+                            children: [
+                              Icon(Icons.local_offer_outlined, 
+                                color: AppColors.primary, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                t('I have a promo code'),
+                                style: AppTextStyles.body(
+                                  color: AppColors.primary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        _buildTextField(
+                          controller: _promoCodeController,
+                          label: t('Promo Code'),
+                          icon: Icons.local_offer_outlined,
+                        ),
                       const SizedBox(height: 24),
                       
                       AppButton(

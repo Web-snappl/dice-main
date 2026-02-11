@@ -30,6 +30,8 @@ class I18n {
       'First Name': 'First Name',
       'Last Name': 'Last Name',
       'Phone': 'Phone',
+      'I have a promo code': 'I have a promo code',
+      'Promo Code': 'Promo Code',
       
       // Menu
       'Lobby': 'Lobby',
@@ -207,6 +209,8 @@ class I18n {
       'First Name': 'Prénom',
       'Last Name': 'Nom',
       'Phone': 'Téléphone',
+      'I have a promo code': 'J\'ai un code promo',
+      'Promo Code': 'Code Promo',
       
       // Menu
       'Lobby': 'Accueil',

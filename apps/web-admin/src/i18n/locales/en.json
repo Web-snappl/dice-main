@@ -13,7 +13,8 @@
         "rewards": "Rewards",
         "financial": "Financial",
         "auditLog": "Audit Log",
-        "settings": "Settings"
+        "settings": "Settings",
+        "promoCodes": "Promo Codes"
     },
     "login": {
         "title": "Admin Login",
@@ -158,5 +159,28 @@
         "page": "Page",
         "previous": "Previous",
         "next": "Next"
+    },
+    "promoCodes": {
+        "title": "Promo Codes",
+        "add": "Add Promo Code",
+        "code": "Code",
+        "bonusAmount": "Bonus Amount (CFA)",
+        "bonusHint": "Amount credited to user balance upon registration",
+        "maxUsesLabel": "Max Uses",
+        "maxUsesHint": "0 = unlimited uses",
+        "expiresAt": "Expiration Date",
+        "expiresHint": "Leave empty for no expiration",
+        "totalCodes": "Total Codes",
+        "activeCodes": "Active Codes",
+        "totalUses": "Total Uses",
+        "active": "Active",
+        "inactive": "Inactive",
+        "expired": "Expired",
+        "maxedOut": "Maxed Out",
+        "bonus": "Bonus",
+        "uses": "Uses",
+        "expires": "Expires",
+        "delete": "Delete",
+        "confirmDelete": "Are you sure you want to delete this promo code?"
     }
 }

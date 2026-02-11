@@ -278,6 +278,7 @@ class AppProvider extends ChangeNotifier {
           firstName: userData['firstName'],
           lastName: userData['lastName'],
           phone: userData['phone'],
+          promoCode: userData['promoCode'],
         );
         
         final apiUser = await _resolveAuthenticatedUser(response);

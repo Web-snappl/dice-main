@@ -54,6 +54,9 @@ const translations: Record<Language, Record<string, string>> = {
     'register.error.passwordMatch': 'Passwords do not match',
     'register.error.email': 'Please enter a valid email',
     'register.error.password': 'Password must be at least 8 characters',
+    'register.promoCode.toggle': 'I have a promo code',
+    'register.promoCode.label': 'Promo Code',
+    'register.promoCode.placeholder': 'Enter promo code',
 
     // Download
     'download.title': 'Download Dice-world',
@@ -115,6 +118,9 @@ const translations: Record<Language, Record<string, string>> = {
     'register.error.passwordMatch': 'Les mots de passe ne correspondent pas',
     'register.error.email': 'Veuillez entrer un email valide',
     'register.error.password': 'Le mot de passe doit contenir au moins 8 caractères',
+    'register.promoCode.toggle': 'J\'ai un code promo',
+    'register.promoCode.label': 'Code Promo',
+    'register.promoCode.placeholder': 'Entrez le code promo',
 
     // Download
     'download.title': 'Téléchargez Dice-world',

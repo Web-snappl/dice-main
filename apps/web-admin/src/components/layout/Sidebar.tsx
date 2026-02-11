@@ -13,6 +13,7 @@ import {
     Settings,
     Dice5,
     X,
+    Ticket,
     // Megaphone,
     // LifeBuoy
 } from 'lucide-react';
@@ -28,6 +29,7 @@ const navItems = [
     { path: '/scores', icon: Trophy, labelKey: 'nav.scores' },
     { path: '/tournaments', icon: Calendar, labelKey: 'nav.tournaments' },
     { path: '/rewards', icon: Gift, labelKey: 'nav.rewards' },
+    { path: '/promo-codes', icon: Ticket, labelKey: 'nav.promoCodes', adminOnly: true },
     { path: '/financial', icon: DollarSign, labelKey: 'nav.financial', adminOnly: true },
     { path: '/audit-log', icon: FileText, labelKey: 'nav.auditLog', adminOnly: true },
     { path: '/settings', icon: Settings, labelKey: 'nav.settings' },

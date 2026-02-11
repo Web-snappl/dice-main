@@ -30,6 +30,9 @@ import { CommunicationService } from './services/communication.service'; // New 
 import { SupportService } from './services/support.service'; // New Service
 import { GameIssue, GameIssueSchema } from './schemas/game-issue.schema'; // New
 import { GameIssuesService } from './services/game-issues.service'; // New
+import { PromoCode, PromoCodeSchema } from './schemas/promo-code.schema';
+import { PromoCodesService } from './services/promo-codes.service';
+import { PromoCodesController } from './controllers/promo-codes.controller';
 
 
 // Controllers
@@ -64,6 +67,7 @@ import { RolesGuard } from './guards/roles.guard';
       { name: Announcement.name, schema: AnnouncementSchema }, // New
       { name: SupportTicket.name, schema: SupportTicketSchema }, // New
       { name: GameIssue.name, schema: GameIssueSchema }, // New
+      { name: PromoCode.name, schema: PromoCodeSchema },
       { name: 'users', schema: users },
       { name: GameHistoryModel.name, schema: gameHistory },
       { name: Deposit.name, schema: depositSchema },
@@ -84,6 +88,7 @@ import { RolesGuard } from './guards/roles.guard';
     CommunicationController, // New
     SupportController, // New
     GameIssuesController, // New
+    PromoCodesController,
   ],
   providers: [
     AuditLogService,
@@ -97,10 +102,11 @@ import { RolesGuard } from './guards/roles.guard';
     CommunicationService, // New
     SupportService, // New
     GameIssuesService, // New
+    PromoCodesService,
     JwtAdminGuard,
     RolesGuard,
   ],
-  exports: [AdminAuthService, AuditLogService],
+  exports: [AdminAuthService, AuditLogService, PromoCodesService],
 })
 export class AdminModule implements OnModuleInit {
   constructor(private readonly adminAuthService: AdminAuthService) { }

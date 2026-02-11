@@ -4,7 +4,7 @@ import { useRegistration } from '@/contexts/RegistrationContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Tag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -19,10 +19,12 @@ const Registration = () => {
     firstName: '',
     lastName: '',
     phoneNumber: '',
+    promoCode: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPromoField, setShowPromoField] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -74,6 +76,7 @@ const Registration = () => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         phoneNumber: formData.phoneNumber,
+        ...(formData.promoCode ? { promoCode: formData.promoCode } : {}),
       });
 
       setUserEmail(formData.email);
@@ -205,6 +208,33 @@ const Registration = () => {
                 />
                 {errors.confirmPassword && (
                   <p className="text-sm text-destructive mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+              <div>
+                {!showPromoField ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPromoField(true)}
+                    className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <Tag className="w-4 h-4" />
+                    {t('register.promoCode.toggle')}
+                  </button>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5" />
+                      {t('register.promoCode.label')}
+                    </label>
+                    <Input
+                      name="promoCode"
+                      placeholder={t('register.promoCode.placeholder')}
+                      value={formData.promoCode}
+                      onChange={handleChange}
+                      className="uppercase"
+                    />
+                  </div>
                 )}
               </div>
 

@@ -13,7 +13,8 @@
         "rewards": "Récompenses",
         "financial": "Finances",
         "auditLog": "Journal d'audit",
-        "settings": "Paramètres"
+        "settings": "Paramètres",
+        "promoCodes": "Codes Promo"
     },
     "login": {
         "title": "Connexion Admin",
@@ -158,5 +159,28 @@
         "page": "Page",
         "previous": "Précédent",
         "next": "Suivant"
+    },
+    "promoCodes": {
+        "title": "Codes Promo",
+        "add": "Ajouter un Code Promo",
+        "code": "Code",
+        "bonusAmount": "Montant du Bonus (CFA)",
+        "bonusHint": "Montant crédité au solde de l'utilisateur lors de l'inscription",
+        "maxUsesLabel": "Utilisations Max",
+        "maxUsesHint": "0 = utilisations illimitées",
+        "expiresAt": "Date d'expiration",
+        "expiresHint": "Laisser vide pour aucune expiration",
+        "totalCodes": "Total des Codes",
+        "activeCodes": "Codes Actifs",
+        "totalUses": "Total des Utilisations",
+        "active": "Actif",
+        "inactive": "Inactif",
+        "expired": "Expiré",
+        "maxedOut": "Maximum atteint",
+        "bonus": "Bonus",
+        "uses": "Utilisations",
+        "expires": "Expire",
+        "delete": "Supprimer",
+        "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce code promo ?"
     }
 }

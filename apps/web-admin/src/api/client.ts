@@ -373,6 +373,22 @@ class ApiClient {
         const response = await this.client.patch(`/admin/games/issues/${id}`, data);
         return response.data;
     }
+
+    // ---- Promo Codes ----
+    async getPromoCodes() {
+        const response = await this.client.get('/admin/promo-codes');
+        return response.data;
+    }
+
+    async createPromoCode(data: { code: string; bonusAmount: number; maxUses?: number; expiresAt?: string }) {
+        const response = await this.client.post('/admin/promo-codes', data);
+        return response.data;
+    }
+
+    async deletePromoCode(id: string) {
+        const response = await this.client.delete(`/admin/promo-codes/${id}`);
+        return response.data;
+    }
 }
 
 export const api = new ApiClient();

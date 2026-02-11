@@ -15,6 +15,7 @@ import {
   SettingsPage,
   CommunicationPage,
   SupportPage,
+  PromoCodesPage,
 } from './pages';
 
 import './i18n';
@@ -42,6 +43,7 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/communication" element={<CommunicationPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/promo-codes" element={<PromoCodesPage />} />
           </Route>
 
           {/* Catch all */}
