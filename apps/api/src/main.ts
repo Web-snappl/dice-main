@@ -10,7 +10,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Enhanced CORS configuration
-  // Enhanced CORS configuration
+  logger.log('Applying CORS Policy v2: Dynamic Origins Enabled (Netlify/Railway)');
   app.enableCors({
     origin: (origin, callback) => {
       const allowedOrigins = [
