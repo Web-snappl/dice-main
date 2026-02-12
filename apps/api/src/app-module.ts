@@ -14,9 +14,11 @@ import { StripeModule } from './modules/stripe/stripe.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { MtnModule } from './modules/mtn/mtn.module';
 import { KkiapayModule } from './modules/kkiapay/kkiapay.module';
+import { DebugModule } from './modules/debug/debug.module';
 
 @Module({
   imports: [
+    // ... existing imports ...
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [
@@ -53,8 +55,8 @@ import { KkiapayModule } from './modules/kkiapay/kkiapay.module';
     TransactionsModule,
     MtnModule,
     KkiapayModule,
+    DebugModule,
   ],
-
 })
 export class AppModule { }
 
