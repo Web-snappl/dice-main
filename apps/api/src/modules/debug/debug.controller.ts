@@ -7,7 +7,7 @@ export class DebugController {
     getDebugInfo(@Req() req: Request, @Headers() headers: any, @Ip() ip: string) {
         return {
             status: 'online',
-            version: '0.0.4', // Hardcoded to verify deployment
+            version: '0.0.5', // Hardcoded to verify deployment
             timestamp: new Date().toISOString(),
             clientIp: ip,
             headers: {
