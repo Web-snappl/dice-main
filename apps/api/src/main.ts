@@ -10,34 +10,51 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Enhanced CORS configuration
-  logger.log('Applying CORS Policy v2: Dynamic Origins Enabled (Netlify/Railway)');
-  app.enableCors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:8080',
-      ];
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+  // Manual CORS Middleware ("Nuclear Option")
+  // We bypass NestJS's cors wrapper to ensure headers are ALWAYS sent for allowed origins
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:8080',
+    ];
 
-      if (
-        allowedOrigins.indexOf(origin) !== -1 ||
-        /\.netlify\.app$/.test(origin) || // Allow all netlify subdomains
-        /\.railway\.app$/.test(origin)    // Allow all railway subdomains
-      ) {
-        callback(null, true);
+    let isAllowed = false;
+    if (!origin) {
+      isAllowed = true; // Allow non-browser requests
+    } else if (allowedOrigins.includes(origin)) {
+      isAllowed = true;
+    } else if (/\.netlify\.app$/.test(origin)) {
+      isAllowed = true; // Allow all Netlify subdomains
+    } else if (/\.railway\.app$/.test(origin)) {
+      isAllowed = true; // Allow all Railway subdomains
+    }
+
+    if (isAllowed && origin) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.header(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, Accept, X-Requested-With, Origin',
+      );
+    }
+
+    // Intercept OPTIONS method
+    if (req.method === 'OPTIONS') {
+      if (isAllowed) {
+        res.sendStatus(200);
       } else {
-        console.warn(`Blocked CORS request from origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
+        // Optionally block unknown origins on preflight, or just let them fail
+        // returning 200 without headers usually fails the browser check anyway
+        res.sendStatus(204);
       }
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-    credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
+      return;
+    }
+
+    next();
   });
 
   app.setGlobalPrefix('api');
