@@ -113,7 +113,10 @@ export class AuthService {
             return { status: 401, message: 'Invalid or missing auth header token' };
         }
 
-        return this._createUser(email, password, firstName, lastName, phoneNumber, role);
+        // Sanitize phone number (remove non-digits)
+        const cleanPhone = phoneNumber.replace(/\D/g, '');
+
+        return this._createUser(email, password, firstName, lastName, cleanPhone, role);
     }
 
     async publicSignup(
@@ -124,37 +127,48 @@ export class AuthService {
         phoneNumber: string,
         promoCode?: string,
     ): Promise<UserLoginResponse> {
-        const user = await this._createUserAndReturn(email, password, firstName, lastName, phoneNumber, 'user');
+        try {
+            // Sanitize phone number (remove non-digits)
+            const cleanPhone = phoneNumber.replace(/\D/g, '');
 
-        // Apply promo code bonus if provided
-        let balance = user.balance || 0;
-        if (promoCode) {
-            try {
-                const bonusAmount = await this.promoCodesService.validateAndUse(promoCode);
-                balance += bonusAmount;
-                await this.userModel.findByIdAndUpdate(user._id, { balance }).exec();
-            } catch (error) {
-                // Don't fail registration if promo code is invalid — just skip the bonus
-                console.warn(`[AuthService] Promo code "${promoCode}" failed: ${error.message}`);
+            const user = await this._createUserAndReturn(email, password, firstName, lastName, cleanPhone, 'user');
+
+            // Apply promo code bonus if provided
+            let balance = user.balance || 0;
+            if (promoCode) {
+                try {
+                    const bonusAmount = await this.promoCodesService.validateAndUse(promoCode);
+                    balance += bonusAmount;
+                    await this.userModel.findByIdAndUpdate(user._id, { balance }).exec();
+                } catch (error) {
+                    // Don't fail registration if promo code is invalid — just skip the bonus
+                    console.warn(`[AuthService] Promo code "${promoCode}" failed: ${error.message}`);
+                }
             }
+
+            const tokens = this.generateTokens(user);
+
+            return {
+                ...tokens,
+                user: {
+                    uid: user._id.toString(),
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    phoneNumber: user.phoneNumber,
+                    role: user.role,
+                    balance,
+                    stripeAccountId: user.stripeAccountId,
+                    isStripeConnected: user.isStripeConnected,
+                },
+            };
+        } catch (error) {
+            console.error('[AuthService] Public signup failed:', error);
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                throw error;
+            }
+            throw new BadRequestException(error.message || 'Registration failed');
         }
-
-        const tokens = this.generateTokens(user);
-
-        return {
-            ...tokens,
-            user: {
-                uid: user._id.toString(),
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                role: user.role,
-                balance,
-                stripeAccountId: user.stripeAccountId,
-                isStripeConnected: user.isStripeConnected,
-            },
-        };
     }
 
     private async _createUser(
@@ -219,7 +233,8 @@ export class AuthService {
         // Build query
         const query: any = {};
         if (phoneNumber) {
-            query.phoneNumber = phoneNumber;
+            // Sanitize phone input
+            query.phoneNumber = phoneNumber.replace(/\D/g, '');
         } else if (email) {
             query.email = email.toLowerCase();
         } else {
