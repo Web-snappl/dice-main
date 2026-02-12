@@ -9,30 +9,24 @@ async function bootstrap() {
   });
   const logger = new Logger('Bootstrap');
 
-  // Reverting to Standard CORS with Logging for Debugging
-  // The manual middleware caused a crash. We will log all origins to stdout.
-  app.enableCors({
-    origin: (origin, callback) => {
-      // Log the origin to Railway logs so we can see what's happening
-      if (origin) {
-        console.log(`[CORS] Incoming request from origin: ${origin}`);
-      } else {
-        console.log(`[CORS] Incoming request with NO ORIGIN`);
-      }
+  // Secure CORS Configuration
+  const corsOriginsEnv = process.env.CORS_ORIGINS;
+  const corsOrigins = corsOriginsEnv ? corsOriginsEnv.split(',').map((origin) => origin.trim()) : '*';
 
-      // TEMPORARY: Allow everything to modify if the crash persists
-      // We will restrict this after confirming the app stays online
-      callback(null, true);
-    },
+  app.enableCors({
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Origin'],
   });
 
+  logger.log(`CORS Origins Configured: ${Array.isArray(corsOrigins) ? corsOrigins.join(', ') : 'ALL (*)'}`);
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   // Use Railway's PORT env var (they set it, we must listen on it)
+  // CRITICAL: Must bind to 0.0.0.0 for Docker/Railway
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
 

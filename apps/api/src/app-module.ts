@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { HealthController } from './health.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
@@ -55,8 +56,10 @@ import { DebugModule } from './modules/debug/debug.module';
     TransactionsModule,
     MtnModule,
     KkiapayModule,
+    KkiapayModule,
     DebugModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule { }
 

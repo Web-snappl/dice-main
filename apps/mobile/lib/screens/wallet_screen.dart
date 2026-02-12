@@ -342,6 +342,7 @@ class WalletScreen extends StatelessWidget {
                 data: referenceId,
                 sandbox: useSandbox,
                 apikey: useApiKey,
+                countries: const ["BJ"], // Enable Benin-specific providers like Celtiis
                 callback: (response, kkiapayContext) async {
                   final status = response['status']?.toString().toUpperCase() ?? '';
                   final txId = response['transactionId']?.toString() ?? '';
