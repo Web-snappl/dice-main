@@ -22,7 +22,7 @@ export class DebugController {
                 PORT: process.env.PORT,
                 // Don't expose sensitive secrets, just existence
                 HAS_MONGO_URI: !!process.env.MONGO_URI,
-                HAS_STRIPE_KEY: !!process.env.STRIPE_SECRET_KEY,
+                HAS_FEDAPAY_KEY: !!process.env.FEDAPAY_SECRET_KEY,
             }
         };
     }

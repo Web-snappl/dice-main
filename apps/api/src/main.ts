@@ -4,10 +4,12 @@ import { AppModule } from './app-module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    // Enable raw body for Stripe webhook signature verification
+    // Preserve the exact payload required by payment-provider signature verification.
     rawBody: true,
   });
   const logger = new Logger('Bootstrap');
+
+  app.enableShutdownHooks();
 
   // Secure CORS Configuration
   const corsOriginsEnv = process.env.CORS_ORIGINS;
@@ -25,8 +27,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
-  // Use Railway's PORT env var (they set it, we must listen on it)
-  // CRITICAL: Must bind to 0.0.0.0 for Docker/Railway
+  // Cloud platforms inject PORT; binding to all interfaces is required in containers.
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
 
@@ -34,4 +35,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

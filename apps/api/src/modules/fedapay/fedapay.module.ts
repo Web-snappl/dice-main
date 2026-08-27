@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { KkiapayController } from './kkiapay.controller';
-import { KkiapayService } from './kkiapay.service';
+import { FedapayController } from './fedapay.controller';
+import { FedapayService } from './fedapay.service';
 import { users } from '../auth/auth.mongoSchema';
 import { Transaction, transactionSchema } from '../../common/transactions.mongoSchema';
 
@@ -14,8 +14,8 @@ import { Transaction, transactionSchema } from '../../common/transactions.mongoS
             { name: Transaction.name, schema: transactionSchema },
         ]),
     ],
-    controllers: [KkiapayController],
-    providers: [KkiapayService],
-    exports: [KkiapayService],
+    controllers: [FedapayController],
+    providers: [FedapayService],
+    exports: [FedapayService],
 })
-export class KkiapayModule { }
+export class FedapayModule { }

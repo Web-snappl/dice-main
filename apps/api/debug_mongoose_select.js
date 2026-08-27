@@ -1,10 +1,13 @@
-
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-const MONGO_URI = 'mongodb+srv://websnapinfo_db_user:hRisYXdcS2fC8AjC@dice-world.ixhcuda.mongodb.net/dice-game?retryWrites=true&w=majority&appName=dice-world';
+const MONGO_URI = process.env.MONGO_URI;
 const LOG_FILE = path.join(__dirname, 'debug_result.json');
+
+if (!MONGO_URI) {
+    throw new Error('MONGO_URI environment variable is required');
+}
 
 const userSchema = new mongoose.Schema({
     firstName: String,
@@ -43,13 +46,12 @@ async function run() {
             result.count = users.length;
             if (users.length > 0) result.keys = Object.keys(users[0].toObject());
             log(result);
-        } catch (err) {
+        } catch (error) {
             result.status = 'FAILED';
-            result.error = err.message;
-            result.stack = err.stack;
+            result.error = error.message;
+            result.stack = error.stack;
             log(result);
         }
-
     } catch (error) {
         result.status = 'CRASHED';
         result.error = error.message;

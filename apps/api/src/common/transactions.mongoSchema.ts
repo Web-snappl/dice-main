@@ -22,16 +22,16 @@ export class Transaction extends Document {
     status: string; // 'SUCCESS', 'PENDING', 'FAILED'
 
     @Prop({ required: false })
-    method: string; // 'STRIPE', 'BANK_TRANSFER', 'MANUAL', 'GAME'
+    method: string; // 'FEDAPAY', 'BANK_TRANSFER', 'MANUAL', 'GAME'
 
     @Prop({ required: false })
     accountNumber: string;
 
     @Prop({ required: false })
-    referenceId: string; // External Reference ID (MTN UUID, Stripe PI ID)
+    referenceId: string; // Our internal reference for the transaction
 
     @Prop({ required: false })
-    providerTransactionId: string; // Provider payment identifier (e.g., Kkiapay transaction ID)
+    providerTransactionId: string; // Provider payment identifier (e.g., FedaPay transaction id)
 
     @Prop({ required: false })
     currency: string; // ISO currency code

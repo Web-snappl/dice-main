@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 
-export class CreateKkiapayDepositIntentDto {
+export class CreateFedapayDepositIntentDto {
     @Type(() => Number)
     @IsNumber()
     @Min(1)
@@ -13,7 +13,7 @@ export class CreateKkiapayDepositIntentDto {
     phoneNumber?: string;
 }
 
-export class VerifyKkiapayDepositDto {
+export class VerifyFedapayDepositDto {
     @IsString()
     @IsNotEmpty()
     transactionId: string;
@@ -23,7 +23,7 @@ export class VerifyKkiapayDepositDto {
     referenceId: string;
 }
 
-export class CreateKkiapayWithdrawalDto {
+export class CreateFedapayWithdrawalDto {
     @Type(() => Number)
     @IsNumber()
     @Min(1)

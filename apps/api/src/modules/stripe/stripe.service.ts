@@ -1,229 +1,311 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { SellerResponse } from './createSeller.dto';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { randomUUID } from 'node:crypto';
+import { Connection, Model } from 'mongoose';
+import Stripe from 'stripe';
+import { Transaction } from '../../common/transactions.mongoSchema';
 import { User } from '../auth/auth.mongoSchema';
-import { TransactionsService } from '../transactions/transactions.service';
+import { StripeClientService } from './stripe-client.service';
 
-import Stripe from "stripe";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder", {
-    apiVersion: "2025-02-24.acacia",
-});
+const STRIPE_CURRENCY = 'xof';
+const MIN_STRIPE_DEPOSIT = 500;
 
 @Injectable()
 export class StripeService {
-    constructor(
-        @InjectModel('users') private readonly userModel: Model<User>,
-        private readonly transactionsService: TransactionsService,
-    ) { }
+  private readonly logger = new Logger(StripeService.name);
 
-    async onboardUser(uid: string, returnUrl: string, refreshUrl: string) {
-        try {
-            let user = await this.userModel.findOne({ clerkUserId: uid });
-            if (!user) {
-                user = await this.userModel.findOne({ uid: uid });
-            }
-            // Fallback: Check if uid is a valid MongoDB _id and search by it
-            if (!user && /^[0-9a-fA-F]{24}$/.test(uid)) {
-                user = await this.userModel.findById(uid);
-            }
+  constructor(
+    private readonly stripeClient: StripeClientService,
+    @InjectModel('users') private readonly userModel: Model<User>,
+    @InjectModel(Transaction.name)
+    private readonly transactionModel: Model<Transaction>,
+    @InjectConnection() private readonly connection: Connection,
+  ) {}
 
-            if (!user) throw new Error(`User not found for uid: ${uid}`);
+  async createDepositIntent(userId: string, amount: number) {
+    const normalizedAmount = this.normalizeAmount(amount);
+    const user = await this.userModel
+      .findById(userId)
+      .select('firstName lastName email')
+      .exec();
 
-            let accountId = user.stripeAccountId;
-
-            // 1. Create Connect Account if not exists
-            if (!accountId) {
-                const account = await stripe.accounts.create({
-                    type: "express",
-                    country: "US", // Reverting to US as SN is not supported for Express
-                    email: user.email,
-                    capabilities: {
-                        transfers: { requested: true },
-                    },
-                    settings: {
-                        payouts: {
-                            schedule: {
-                                interval: "manual",
-                            },
-                        },
-                    },
-                    metadata: {
-                        uid: uid,
-                    }
-                });
-                accountId = account.id;
-                user.stripeAccountId = accountId;
-                user.isStripeConnected = false;
-                await user.save();
-            }
-
-            // 2. Create Account Link for onboarding
-            const accountLink = await stripe.accountLinks.create({
-                account: accountId,
-                refresh_url: refreshUrl,
-                return_url: returnUrl,
-                type: "account_onboarding",
-            });
-
-            return {
-                url: accountLink.url,
-                stripeAccountId: accountId
-            };
-        } catch (error) {
-            console.error("Stripe Onboarding Error:", error);
-            // Throwing BadRequestException makes the error message visible to the frontend
-            throw new BadRequestException(`Stripe Connect Failed: ${error.message}`);
-        }
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    async getAccountStatus(uid: string) {
-        let user = await this.userModel.findOne({ clerkUserId: uid });
-        if (!user) user = await this.userModel.findOne({ uid: uid });
-        if (!user) throw new Error('User not found');
+    const referenceId = `STRIPE_${randomUUID()}`;
+    const userName =
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown';
+    const transaction = new this.transactionModel({
+      userId,
+      userName,
+      type: 'DEPOSIT',
+      amount: normalizedAmount,
+      status: 'PENDING',
+      method: 'STRIPE',
+      referenceId,
+      currency: STRIPE_CURRENCY.toUpperCase(),
+      adminNote: 'Stripe PaymentIntent creation started',
+      timestamp: new Date(),
+    });
+    await transaction.save();
 
-        if (!user.stripeAccountId) {
-            return {
-                isConnected: false,
-                detailsSubmitted: false,
-                payoutsEnabled: false,
-            };
-        }
-
-        const account = await stripe.accounts.retrieve(user.stripeAccountId);
-
-        const isConnected = account.details_submitted && account.payouts_enabled;
-
-        // Update local status if changed
-        if (user.isStripeConnected !== isConnected) {
-            user.isStripeConnected = isConnected;
-            await user.save();
-        }
-
-        return {
-            isConnected: isConnected,
-            detailsSubmitted: account.details_submitted,
-            payoutsEnabled: account.payouts_enabled,
-            currency: account.default_currency,
-        };
-    }
-
-    async createDepositIntent(uid: string, amount: number, currency: string = 'xof') {
-        const amountInCents = Math.round(amount);
-
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: amountInCents,
-            currency: currency,
+    try {
+      const paymentIntent = await this.stripeClient
+        .getClient()
+        .paymentIntents.create(
+          {
+            amount: normalizedAmount,
+            currency: STRIPE_CURRENCY,
+            automatic_payment_methods: { enabled: true },
+            description: 'Dice World account top-up',
             metadata: {
-                uid: uid,
-                type: 'deposit'
+              type: 'deposit',
+              userId,
+              referenceId,
             },
-            automatic_payment_methods: {
-                enabled: true,
-            },
-        });
+            ...(user.email ? { receipt_email: user.email } : {}),
+          },
+          { idempotencyKey: referenceId },
+        );
 
-        // Create Pending Transaction
-        await this.transactionsService.create({
-            userId: uid,
+      if (!paymentIntent.client_secret) {
+        throw new InternalServerErrorException(
+          'Stripe did not return a client secret',
+        );
+      }
+
+      transaction.providerTransactionId = paymentIntent.id;
+      transaction.adminNote = `Stripe PaymentIntent: ${paymentIntent.id}`;
+      await transaction.save();
+
+      return {
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        referenceId,
+        amount: normalizedAmount,
+        currency: STRIPE_CURRENCY.toUpperCase(),
+        status: transaction.status,
+      };
+    } catch (error) {
+      transaction.status = 'FAILED';
+      transaction.adminNote = `Stripe PaymentIntent creation failed: ${this.errorMessage(error)}`;
+      await transaction.save();
+      throw error;
+    }
+  }
+
+  async getDepositStatus(userId: string, referenceId: string) {
+    const transaction = await this.transactionModel
+      .findOne({
+        userId,
+        referenceId,
+        type: 'DEPOSIT',
+        method: 'STRIPE',
+      })
+      .exec();
+
+    if (!transaction) {
+      throw new NotFoundException('Stripe deposit not found');
+    }
+
+    return {
+      referenceId: transaction.referenceId,
+      paymentIntentId: transaction.providerTransactionId || null,
+      amount: transaction.amount,
+      currency: transaction.currency || STRIPE_CURRENCY.toUpperCase(),
+      status: transaction.status,
+      timestamp: transaction.timestamp,
+    };
+  }
+
+  constructEvent(payload: Buffer, signature: string): Stripe.Event {
+    return this.stripeClient.constructEvent(payload, signature);
+  }
+
+  async handleEvent(event: Stripe.Event) {
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        return this.creditSuccessfulDeposit(event.id, event.data.object);
+      case 'payment_intent.payment_failed':
+        await this.recordPaymentFailure(event.data.object);
+        return { received: true, status: 'payment_failed' };
+      case 'payment_intent.canceled':
+        await this.recordPaymentCancellation(event.data.object);
+        return { received: true, status: 'canceled' };
+      default:
+        return { received: true, status: 'ignored' };
+    }
+  }
+
+  private async creditSuccessfulDeposit(
+    eventId: string,
+    paymentIntent: Stripe.PaymentIntent,
+  ) {
+    const metadata = paymentIntent.metadata || {};
+    const userId = metadata.userId;
+    const referenceId = metadata.referenceId;
+
+    if (metadata.type !== 'deposit' || !userId || !referenceId) {
+      this.logger.warn(
+        `Ignoring Stripe PaymentIntent ${paymentIntent.id}: deposit metadata is missing`,
+      );
+      return { received: true, status: 'ignored' };
+    }
+
+    if (paymentIntent.currency.toLowerCase() !== STRIPE_CURRENCY) {
+      throw new BadRequestException(
+        'Stripe payment currency does not match the deposit intent',
+      );
+    }
+
+    const session = await this.connection.startSession();
+    let resultStatus: 'credited' | 'duplicate' = 'credited';
+
+    try {
+      await session.withTransaction(async () => {
+        const transaction = await this.transactionModel
+          .findOne({
+            userId,
+            referenceId,
             type: 'DEPOSIT',
-            amount: amount,
-            status: 'PENDING',
             method: 'STRIPE',
-            adminNote: `PaymentIntent: ${paymentIntent.id}`
-        });
+          })
+          .session(session);
 
-        return {
-            clientSecret: paymentIntent.client_secret,
-            id: paymentIntent.id
-        };
-    }
-
-    async createLoginLink(stripeAccountId: string) {
-        const loginLink = await stripe.accounts.createLoginLink(stripeAccountId);
-        return loginLink;
-    }
-
-    async createWithdrawal(uid: string, amount: number) {
-        let user = await this.userModel.findOne({ clerkUserId: uid });
-        if (!user) user = await this.userModel.findOne({ uid: uid });
-
-        if (!user) throw new Error('User not found');
-
-        if (!user.stripeAccountId) {
-            throw new Error('No Connect account found. Please link your bank account first.');
+        if (!transaction) {
+          throw new NotFoundException('Stripe deposit intent not found');
         }
 
-        // Check if account is actually capable of receiving transfers
-        const account = await stripe.accounts.retrieve(user.stripeAccountId);
-        if (!account.payouts_enabled) {
-            throw new Error('Your bank account is not yet verified or ready for payouts. Please check your Stripe settings.');
+        if (transaction.status === 'SUCCESS') {
+          resultStatus = 'duplicate';
+          return;
         }
 
-        if ((user.balance || 0) < amount) {
-            throw new Error('Insufficient balance');
+        if (transaction.status !== 'PENDING') {
+          throw new ConflictException(
+            `Stripe deposit cannot be credited from status ${transaction.status}`,
+          );
         }
 
-        const amountInCents = Math.round(amount);
-
-        // 1. Create PENDING Transaction Record
-        await this.transactionsService.create({
-            userId: uid,
-            type: 'WITHDRAWAL',
-            amount: amount,
-            status: 'PENDING',
-            method: 'STRIPE_CONNECT',
-        });
-
-        try {
-            // 2. Optimistic Balance Deduct
-            user.balance = (user.balance || 0) - amount;
-            await user.save();
-
-            // 3. Create Transfer
-            const transfer = await stripe.transfers.create({
-                amount: amountInCents,
-                currency: "xof",
-                destination: user.stripeAccountId,
-                metadata: {
-                    uid: uid,
-                    type: 'withdrawal_payout'
-                }
-            });
-
-            // 4. Update Transaction to SUCCESS
-            await this.transactionsService.create({
-                userId: uid,
-                type: 'WITHDRAWAL',
-                amount: amount,
-                status: 'SUCCESS',
-                method: 'STRIPE_CONNECT',
-                adminNote: `Transfer ID: ${transfer.id}, Dest: ${user.stripeAccountId}`
-            });
-
-            return { success: true, transferId: transfer.id, newBalance: user.balance };
-        } catch (error) {
-            // Rollback if Stripe fails
-            user.balance = (user.balance || 0) + amount;
-            await user.save();
-
-            // Mark transaction FAILED
-            await this.transactionsService.create({
-                userId: uid,
-                type: 'WITHDRAWAL',
-                amount: amount,
-                status: 'FAILED',
-                method: 'STRIPE_CONNECT',
-                adminNote: `Error: ${error.message}`
-            });
-
-            throw error;
+        if (transaction.providerTransactionId !== paymentIntent.id) {
+          throw new ConflictException(
+            'Stripe PaymentIntent does not match the deposit intent',
+          );
         }
+
+        if (Number(transaction.amount) !== paymentIntent.amount) {
+          throw new BadRequestException(
+            'Stripe payment amount does not match the deposit intent',
+          );
+        }
+
+        const claimedTransaction = await this.transactionModel.findOneAndUpdate(
+          { _id: transaction._id, status: 'PENDING' },
+          {
+            $set: {
+              status: 'SUCCESS',
+              verifiedAt: new Date(),
+              adminNote: `Stripe PaymentIntent: ${paymentIntent.id}; event: ${eventId}`,
+            },
+          },
+          { new: true, session },
+        );
+
+        if (!claimedTransaction) {
+          resultStatus = 'duplicate';
+          return;
+        }
+
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+          userId,
+          { $inc: { balance: paymentIntent.amount } },
+          { new: true, session },
+        );
+
+        if (!updatedUser) {
+          throw new NotFoundException('User not found');
+        }
+      });
+    } finally {
+      await session.endSession();
     }
 
-    // Helper to verify webhook signature
-    constructEventFromPayload(signature: string, payload: Buffer) {
-        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-        return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    if (resultStatus === 'credited') {
+      this.logger.log(
+        `Credited Stripe deposit user=${userId} reference=${referenceId} amount=${paymentIntent.amount}`,
+      );
     }
+
+    return { received: true, status: resultStatus };
+  }
+
+  private async recordPaymentFailure(
+    paymentIntent: Stripe.PaymentIntent,
+  ): Promise<void> {
+    const referenceId = paymentIntent.metadata?.referenceId;
+    if (!referenceId) {
+      return;
+    }
+
+    const failureMessage =
+      paymentIntent.last_payment_error?.message || 'Payment attempt failed';
+    await this.transactionModel.updateOne(
+      {
+        referenceId,
+        providerTransactionId: paymentIntent.id,
+        status: 'PENDING',
+      },
+      { $set: { adminNote: `Stripe: ${failureMessage}` } },
+    );
+  }
+
+  private async recordPaymentCancellation(
+    paymentIntent: Stripe.PaymentIntent,
+  ): Promise<void> {
+    const referenceId = paymentIntent.metadata?.referenceId;
+    if (!referenceId) {
+      return;
+    }
+
+    await this.transactionModel.updateOne(
+      {
+        referenceId,
+        providerTransactionId: paymentIntent.id,
+        status: 'PENDING',
+      },
+      {
+        $set: {
+          status: 'FAILED',
+          verifiedAt: new Date(),
+          adminNote: 'Stripe PaymentIntent canceled',
+        },
+      },
+    );
+  }
+
+  private normalizeAmount(amount: number): number {
+    const normalized = Number(amount);
+    if (
+      !Number.isSafeInteger(normalized) ||
+      normalized < MIN_STRIPE_DEPOSIT ||
+      normalized > 99_999_999
+    ) {
+      throw new BadRequestException(
+        `Deposit amount must be a whole number between ${MIN_STRIPE_DEPOSIT} and 99999999 CFA`,
+      );
+    }
+    return normalized;
+  }
+
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
 }

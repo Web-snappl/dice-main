@@ -11,11 +11,12 @@ import { WebsocketModule } from './modules/nestSockets/websocket.module';
 import { GameModule } from './modules/game/game.module';
 import { DepositsModule } from './modules/deposits/deposits.module';
 import { AdminModule } from './admin/admin.module';
-import { StripeModule } from './modules/stripe/stripe.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
-import { MtnModule } from './modules/mtn/mtn.module';
-import { KkiapayModule } from './modules/kkiapay/kkiapay.module';
+import { FedapayModule } from './modules/fedapay/fedapay.module';
+import { StripeModule } from './modules/stripe/stripe.module';
 import { DebugModule } from './modules/debug/debug.module';
+
+const diagnosticsModules = process.env.NODE_ENV === 'production' ? [] : [DebugModule];
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { DebugModule } from './modules/debug/debug.module';
       ],
     }),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'client', 'dist'),
+      rootPath: join(__dirname, '..', 'public'),
       exclude: ['/api{/*path}', '/admin{/*path}'],
       renderPath: '/',
     }),
@@ -52,14 +53,11 @@ import { DebugModule } from './modules/debug/debug.module';
     GameModule,
     DepositsModule,
     AdminModule, // Admin Panel Module
-    StripeModule,
     TransactionsModule,
-    MtnModule,
-    KkiapayModule,
-    KkiapayModule,
-    DebugModule,
+    FedapayModule,
+    StripeModule,
+    ...diagnosticsModules,
   ],
   controllers: [HealthController],
 })
 export class AppModule { }
-
